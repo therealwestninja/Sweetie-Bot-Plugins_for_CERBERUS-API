@@ -1,4 +1,5 @@
 from dataclasses import asdict
+
 from sweetiebot.character.schemas import CharacterState, MoodState
 
 

@@ -88,3 +88,17 @@ This repository is a **starter skeleton** only. Before becoming real:
 
 ## Release
 Initial aspirational scaffold released on 2026-03-29.
+
+## GitHub-ready additions
+
+This scaffold now includes:
+- GitHub issue forms
+- CI and docs workflows
+- Dependabot configuration
+- CODEOWNERS, SECURITY, and SUPPORT guides
+- a project-board seed file and `gh` seeding helper
+- a recommended first commit series for publishing the repo cleanly
+
+See:
+- [First Commit Series](docs/FIRST_COMMIT_SERIES.md)
+- [Project Board Seed](docs/PROJECT_BOARD_SEED.md)

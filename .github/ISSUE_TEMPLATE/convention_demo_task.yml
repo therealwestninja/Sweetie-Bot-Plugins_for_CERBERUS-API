@@ -1,0 +1,33 @@
+name: Convention demo task
+description: Track a show-floor or stage-demo requirement.
+title: "demo: "
+labels: ["area: convention-demo", "type: task", "triage"]
+body:
+  - type: textarea
+    id: cue
+    attributes:
+      label: Cue or routine
+      placeholder: Which routine, trigger, or operator flow is this for?
+    validations:
+      required: true
+  - type: textarea
+    id: operator
+    attributes:
+      label: Operator impact
+      placeholder: What does the operator need to see or do?
+    validations:
+      required: true
+  - type: textarea
+    id: audience
+    attributes:
+      label: Audience-visible result
+      placeholder: What should attendees see?
+    validations:
+      required: true
+  - type: checkboxes
+    id: readiness
+    attributes:
+      label: Show readiness
+      options:
+        - label: Includes a safe fallback or cancel path.
+        - label: Includes a rehearsal or dry-run note.

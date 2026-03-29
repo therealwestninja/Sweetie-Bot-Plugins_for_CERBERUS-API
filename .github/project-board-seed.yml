@@ -1,0 +1,39 @@
+name: Sweetie-Bot Delivery Board
+fields:
+  - name: Status
+    type: single_select
+    options:
+      - Backlog
+      - Ready
+      - In Progress
+      - In Review
+      - Blocked
+      - Done
+  - name: Track
+    type: single_select
+    options:
+      - Runtime
+      - Web
+      - Assets
+      - Ops
+      - Docs
+  - name: Milestone
+    type: single_select
+    options:
+      - M0 Fork Baseline
+      - M1 Character Shell
+      - M2 Talking Sweetie-Bot
+      - M3 Social Sweetie-Bot
+      - M4 Convention Demo
+      - M5 Companion Beta
+      - M6 Public-Safe RC
+views:
+  - name: Board by Status
+    layout: board
+    group_by: Status
+  - name: Runtime Queue
+    layout: table
+    filter: Track == Runtime
+  - name: Convention Demo Burnup
+    layout: table
+    filter: Milestone == M4 Convention Demo

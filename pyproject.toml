@@ -1,8 +1,32 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "sweetiebot-fork"
-version = "0.0.1"
+version = "0.0.2"
 description = "Aspirational monorepo scaffold for a character robot fork"
 requires-python = ">=3.11"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[project.optional-dependencies]
+dev = [
+  "PyYAML>=6.0",
+  "pytest>=8.0",
+  "ruff>=0.11.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
+[tool.setuptools]
+packages = ["sweetiebot"]
+
+[tool.setuptools.package-data]
+sweetiebot = ["../sweetiebot-assets/**/*.yaml", "../sweetiebot-assets/**/*.json", "../sweetiebot-assets/**/*.md"]

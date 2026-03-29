@@ -1,0 +1,45 @@
+- name: triage
+  color: "D4C5F9"
+  description: Needs review and routing.
+- name: good first issue
+  color: "7057ff"
+  description: Small, bounded task for new contributors.
+- name: type: bug
+  color: "d73a4a"
+  description: Something is broken.
+- name: type: feature
+  color: "0e8a16"
+  description: New capability or enhancement.
+- name: type: task
+  color: "1d76db"
+  description: Focused implementation or maintenance work.
+- name: type: docs
+  color: "0075ca"
+  description: Documentation-only work.
+- name: priority: p0
+  color: "b60205"
+  description: Blocking or safety-critical.
+- name: priority: p1
+  color: "d93f0b"
+  description: High priority.
+- name: priority: p2
+  color: "fbca04"
+  description: Normal priority.
+- name: area: api
+  color: "5319e7"
+  description: Backend, runtime, or plugin work.
+- name: area: web
+  color: "5319e7"
+  description: Operator UI or authoring surface.
+- name: area: assets
+  color: "c5def5"
+  description: Persona, dialogue, routines, or emote content.
+- name: area: ops
+  color: "c2e0c6"
+  description: Deployment, logs, runbooks, and operations.
+- name: area: convention-demo
+  color: "f9d0c4"
+  description: Demo-floor and show-mode work.
+- name: safety
+  color: "000000"
+  description: Motion, proximity, electrical, or public-demo safety concern.

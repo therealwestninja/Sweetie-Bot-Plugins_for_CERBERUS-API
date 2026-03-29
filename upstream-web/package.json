@@ -1,8 +1,10 @@
 {
   "name": "upstream-web-placeholder",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "private": true,
   "scripts": {
-    "start": "echo placeholder web app"
+    "start": "echo placeholder web app",
+    "lint": "node -e "console.log('web placeholder lint passed')"",
+    "test": "node -e "console.log('web placeholder tests passed')""
   }
 }

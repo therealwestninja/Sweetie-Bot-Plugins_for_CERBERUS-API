@@ -1,4 +1,5 @@
 from pathlib import Path
+
 from sweetiebot.persona.loader import load_persona
 
 

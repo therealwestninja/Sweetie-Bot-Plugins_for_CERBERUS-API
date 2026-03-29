@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Design discussion
+    url: https://github.com/example/sweetiebot-fork/discussions
+    about: Use Discussions for broad architecture, persona, or roadmap conversations.
+  - name: Support guidance
+    url: https://github.com/example/sweetiebot-fork/blob/main/.github/SUPPORT.md
+    about: Read the support guide before opening an issue.

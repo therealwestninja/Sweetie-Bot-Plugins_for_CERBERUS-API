@@ -1,0 +1,45 @@
+name: Feature request
+description: Propose a new capability with clear user value and scope.
+title: "feat: "
+labels: ["type: feature", "triage"]
+body:
+  - type: dropdown
+    id: target
+    attributes:
+      label: Target milestone
+      options:
+        - M0 Fork Baseline
+        - M1 Character Shell
+        - M2 Talking Sweetie-Bot
+        - M3 Social Sweetie-Bot
+        - M4 Convention Demo
+        - M5 Companion Beta
+        - M6 Public-Safe Release Candidate
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement
+      placeholder: What problem does this solve and for whom?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      placeholder: |
+        - [ ] ...
+        - [ ] ...
+    validations:
+      required: true
+  - type: textarea
+    id: risks
+    attributes:
+      label: Risks or tradeoffs
