@@ -1,21 +1,19 @@
 # Roadmap
 
-## Current phase: reusable character foundations
+## Phase 0 — Foundations (Current)
+- API scaffold
+- Plugins
+- Persona
+- Emotes
+- Routines
 
-### In progress
-- persona defaults and authoring metadata
-- emote selection with accessory scene hints
-- routine planning and preview data
-- accessory scene catalog and application
+## Phase 1 — Convention Demo
+- scripted routines
+- expressive behavior
 
-### Next
-- routine execution planner with step timing windows
-- speech queue and interrupt handling
-- richer controller UI for persona/emote/routine authoring
-- CERBERUS-specific adapter pass against a real runtime contract
+## Phase 2 — Companion
+- perception
+- memory
 
-### Later
-- social perception inputs
-- accessory hardware drivers
-- convention show mode
-- companion memory and personalization
+## Phase 3 — Autonomous Character
+- emotional transitions
