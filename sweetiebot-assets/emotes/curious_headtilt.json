@@ -1,0 +1,16 @@
+{
+  "id": "curious_headtilt",
+  "tags": [
+    "curious",
+    "greeting",
+    "attention"
+  ],
+  "default_duration_ms": 1800,
+  "body_profile": {
+    "posture": "attentive",
+    "yaw_bias": "soft"
+  },
+  "linked_accessories": {
+    "eyes": "eyes_curious"
+  }
+}

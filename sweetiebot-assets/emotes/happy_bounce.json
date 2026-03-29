@@ -1,0 +1,16 @@
+{
+  "id": "happy_bounce",
+  "tags": [
+    "happy",
+    "performance",
+    "celebration"
+  ],
+  "default_duration_ms": 1600,
+  "body_profile": {
+    "posture": "lively",
+    "yaw_bias": "center"
+  },
+  "linked_accessories": {
+    "eyes": "eyes_happy"
+  }
+}

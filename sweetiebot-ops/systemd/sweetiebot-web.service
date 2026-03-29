@@ -1,0 +1,9 @@
+[Unit]
+Description=Sweetie-Bot Web Placeholder
+
+[Service]
+ExecStart=/usr/bin/env echo web-placeholder
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

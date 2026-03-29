@@ -1,0 +1,6 @@
+version: '3.9'
+services:
+  sweetiebot-api:
+    image: placeholder
+  sweetiebot-web:
+    image: placeholder

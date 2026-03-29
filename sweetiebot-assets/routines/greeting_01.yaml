@@ -1,0 +1,11 @@
+id: greeting_01
+title: Greeting 01
+steps:
+  - type: focus
+    target: nearest_person
+  - type: emote
+    id: curious_headtilt
+  - type: say
+    text_key: default_01
+cancellation_behavior: safe_idle
+required_capabilities: []

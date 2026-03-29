@@ -1,0 +1,11 @@
+id: bow_exit_01
+title: Bow Exit 01
+steps:
+  - type: emote
+    id: bashful_shift
+  - type: say
+    text: "Thank you for watching!"
+  - type: wait
+    duration_ms: 600
+cancellation_behavior: safe_idle
+required_capabilities: []
