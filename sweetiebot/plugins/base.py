@@ -133,3 +133,122 @@ class AudioOutputPlugin(BasePlugin):
 
     def play(self, audio_payload: Dict[str, Any] | str) -> Dict[str, Any]:
         raise NotImplementedError
+
+
+# ---------------------------------------------------------------------------
+# Integration layer plugin base classes
+# These define the extension points for the Sweetie-Bot ↔ CERBERUS pipeline.
+# Third-party developers can subclass these to provide custom mapping logic,
+# safety policies, or memory context strategies.
+# ---------------------------------------------------------------------------
+
+class CerberusMapperPlugin(BasePlugin):
+    """
+    Translates a CharacterResponse into an ordered list of CERBERUS commands.
+
+    Implementations must be fail-closed: unknown IDs must be rejected, never
+    passed through. The ``plan()`` method must never raise; it returns a
+    rejected plan instead.
+
+    Capabilities to advertise in manifest:
+        "allowlist_routines", "allowlist_emotes", "allowlist_accessories",
+        "dry_run"
+    """
+    plugin_type = PluginType.CERBERUS_MAPPER
+
+    def plan(
+        self,
+        response: Any,
+        *,
+        safety_mode: Any = None,
+        dry_run: Optional[bool] = None,
+    ) -> Any:
+        """Return an IntegrationPlan for the given CharacterResponse."""
+        raise NotImplementedError
+
+    def validate(self, response: Any) -> Dict[str, Any]:
+        """Validate without mutating state. Returns ValidationResult-compatible dict."""
+        raise NotImplementedError
+
+    def capabilities(self, safety_mode: Any = None) -> Any:
+        """Return a CapabilityManifest describing what this mapper supports."""
+        raise NotImplementedError
+
+    def snapshot(self) -> Dict[str, Any]:
+        """Return a serialisable snapshot of current mapper state."""
+        raise NotImplementedError
+
+
+class SafetyGatePlugin(BasePlugin):
+    """
+    Guards a CharacterResponse before it reaches the CERBERUS mapper.
+
+    Implementations must be fail-closed: when in doubt, block.
+    The gate must never raise on ``check()``; it returns a GateResult instead.
+
+    Capabilities to advertise in manifest:
+        "rate_limiting", "mode_aware", "operator_override", "audit_log"
+    """
+    plugin_type = PluginType.SAFETY_GATE
+
+    def check(self, response: Any, *, operator_override: bool = False) -> Any:
+        """Evaluate the response and return a GateResult."""
+        raise NotImplementedError
+
+    def validate_only(self, response: Any) -> Any:
+        """Read-only check — no state is mutated. Returns ValidationResult-compat dict."""
+        raise NotImplementedError
+
+    def set_safety_mode(self, mode: Any) -> None:
+        """Change the gate's operating mode (NORMAL/SAFE/DEGRADED/EMERGENCY)."""
+        raise NotImplementedError
+
+    def set_operator_override(self, active: bool) -> None:
+        """Enable or disable the blanket operator override flag."""
+        raise NotImplementedError
+
+    @property
+    def safety_mode(self) -> Any:
+        """Current safety mode."""
+        raise NotImplementedError
+
+    def snapshot(self) -> Dict[str, Any]:
+        """Return a serialisable snapshot of current gate state."""
+        raise NotImplementedError
+
+    def recent_audit(self, limit: int = 20) -> List[Dict[str, Any]]:
+        """Return the most recent gate audit log entries."""
+        raise NotImplementedError
+
+
+class MemoryContextPlugin(BasePlugin):
+    """
+    Builds a concise natural-language context string from recent memory records
+    so the dialogue / behavior layers can avoid repeating themselves and
+    reference earlier exchanges naturally.
+
+    Capabilities to advertise in manifest:
+        "context_summary", "recent_commands"
+    """
+    plugin_type = PluginType.MEMORY_CONTEXT
+
+    def build_context_summary(
+        self,
+        records: List[Dict[str, Any]],
+        *,
+        current_mood: str = "calm",
+        current_routine: Optional[str] = None,
+        max_chars: int = 400,
+    ) -> str:
+        """Return a natural-language summary of recent memory records."""
+        raise NotImplementedError
+
+    def extract_recent_commands(
+        self,
+        records: List[Dict[str, Any]],
+        *,
+        limit: int = 5,
+    ) -> Dict[str, List[str]]:
+        """Return recently used routine/emote IDs from memory."""
+        raise NotImplementedError
+

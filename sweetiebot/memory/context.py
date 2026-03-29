@@ -60,9 +60,9 @@ def build_context_summary(
         content = rec.get("content", "")
 
         if kind == "user_input" and content:
-            turns.append(f"User said: "{_trunc(content, 60)}"")
+            turns.append('User said: ' + chr(34) + _trunc(content, 60) + chr(34))
         elif kind == "assistant_reply" and content:
-            turns.append(f"I replied: "{_trunc(content, 60)}"")
+            turns.append('I replied: ' + chr(34) + _trunc(content, 60) + chr(34))
         elif kind == "emote_selection" and content:
             recent_emotes.append(content)
         elif kind == "routine_arbitration" and content:

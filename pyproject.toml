@@ -1,7 +1,7 @@
 [project]
 name = "sweetiebot"
 version = "0.1.1"
-description = "Sweetie Bot framework extensions"
+description = "Sweetie Bot — character cognition and expression layer for CERBERUS-controlled robots"
 requires-python = ">=3.11"
 dependencies = [
   "fastapi>=0.110",
@@ -13,6 +13,17 @@ dependencies = [
 sweetiebot = "sweetiebot.cli.main:main"
 
 [project.entry-points."sweetiebot.plugins"]
-local_dialogue_provider = "sweetiebot.plugins.builtins:LocalDialogueProviderPlugin"
-demo_routine_pack = "sweetiebot.plugins.builtins:DemoRoutinePackPlugin"
-default_safety_policy = "sweetiebot.plugins.builtins:DefaultSafetyPolicyPlugin"
+local_dialogue_provider   = "sweetiebot.plugins.builtins:LocalDialogueProviderPlugin"
+demo_routine_pack         = "sweetiebot.plugins.builtins:DemoRoutinePackPlugin"
+default_safety_policy     = "sweetiebot.plugins.builtins:DefaultSafetyPolicyPlugin"
+allowlist_cerberus_mapper = "sweetiebot.plugins.builtins:AllowlistCerberusMapperPlugin"
+rule_based_safety_gate    = "sweetiebot.plugins.builtins:RuleBasedSafetyGatePlugin"
+memory_context_builder    = "sweetiebot.plugins.builtins:MemoryContextBuilderPlugin"
+
+[tool.setuptools.packages.find]
+where   = ["."]
+include = ["sweetiebot*"]
+
+[tool.pytest.ini_options]
+testpaths    = ["tests"]
+python_files = ["test_*.py"]

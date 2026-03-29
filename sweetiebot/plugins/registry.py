@@ -10,10 +10,13 @@ from sweetiebot.plugins.builtins import (
     InMemoryStorePlugin,
     InMemoryTelemetrySinkPlugin,
     LocalDialogueProviderPlugin,
+    MemoryContextBuilderPlugin,
     MockAudioOutputPlugin,
     MockPerceptionSourcePlugin,
     MockTTSProviderPlugin,
     RuleBasedAttentionStrategyPlugin,
+    AllowlistCerberusMapperPlugin,
+    RuleBasedSafetyGatePlugin,
 )
 from sweetiebot.plugins.config import load_plugin_config
 from sweetiebot.plugins.health import summarize_plugin_health
@@ -41,6 +44,10 @@ class PluginRegistry:
             InMemoryTelemetrySinkPlugin(),
             MockTTSProviderPlugin(),
             MockAudioOutputPlugin(),
+            # ── Integration layer (CERBERUS pipeline) ──────────────────
+            AllowlistCerberusMapperPlugin(),
+            RuleBasedSafetyGatePlugin(),
+            MemoryContextBuilderPlugin(),
         ]:
             if plugin.plugin_id not in self._plugins:
                 self.register(plugin)
@@ -126,6 +133,18 @@ class PluginRegistry:
 
     def get_dialogue_provider(self) -> Optional[BasePlugin]:
         return self.get_best_plugin(PluginType.DIALOGUE_PROVIDER)
+
+    def get_cerberus_mapper(self) -> Optional[BasePlugin]:
+        """Return the highest-priority CerberusMapperPlugin, or None."""
+        return self.get_best_plugin(PluginType.CERBERUS_MAPPER)
+
+    def get_safety_gate(self) -> Optional[BasePlugin]:
+        """Return the highest-priority SafetyGatePlugin, or None."""
+        return self.get_best_plugin(PluginType.SAFETY_GATE)
+
+    def get_memory_context(self) -> Optional[BasePlugin]:
+        """Return the highest-priority MemoryContextPlugin, or None."""
+        return self.get_best_plugin(PluginType.MEMORY_CONTEXT)
 
     def configure_from_mapping(self, payload: Dict[str, Any]) -> List[str]:
         plugins = payload.get("plugins", payload)

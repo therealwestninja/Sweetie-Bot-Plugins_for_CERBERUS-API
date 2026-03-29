@@ -19,6 +19,10 @@ class PluginType(str, Enum):
     TELEMETRY_SINK = "telemetry_sink"
     OPERATOR_CONTROL = "operator_control"
     ASSET_PACK = "asset_pack"
+    # ── Integration layer (added by Sweetie-Bot CERBERUS integration) ──
+    CERBERUS_MAPPER    = "cerberus_mapper"
+    SAFETY_GATE        = "safety_gate"
+    MEMORY_CONTEXT     = "memory_context"
 
 
 PluginFamily = PluginType
