@@ -1,32 +1,40 @@
 # Sweetie Bot Fork
 
-A GitHub-ready scaffold for building a character-driven robot companion on top of the CERBERUS API and web controller stack.
+Sweetie Bot Fork is a GitHub-ready scaffold for building a character-driven robot companion on top of a CERBERUS-style API and web controller stack.
 
-This repo keeps the control plane small and reusable: robot motion, safety, and bridge concerns stay in the CERBERUS-style API layer, while Sweetie Bot personality, routines, dialogue, and accessory adapters are implemented as transplantable plugins.
+The project keeps the hard real-time control plane small and reusable. Motion, safety, bridges, and hardware coordination stay in the CERBERUS-facing runtime. Personality, emotes, routines, accessories, and dialogue are built as reusable plugins that other CERBERUS-based projects can transplant.
+
+## Highlights
+
+- FastAPI runtime scaffold with character, routine, accessory, event, plugin, and memory endpoints
+- reusable Sweetie Bot plugins for persona, dialogue, attention, emotes, routines, and accessories
+- local rule-based dialogue plus adapter scaffolds for OpenAI and Anthropic
+- configurable CERBERUS audio sink for Go2 onboard speech output
+- browser-side operator console scaffold with live event streaming
+- asset-driven personas, routines, accessory scenes, and emote metadata
+
+## Repository layout
+
+```text
+upstream_api/      CERBERUS-style API/runtime scaffold
+upstream-web/      Browser controller scaffold
+plugins/           Reusable CERBERUS-style plugins
+sweetiebot/        Shared runtime modules
+sweetiebot-assets/ Persona, emote, routine, accessory, and prompt assets
+sweetiebot-ops/    Deployment and operations scaffolding
+docs/              Vision, roadmap, contracts, and architecture notes
+```
 
 ## Current status
 
-`v0.0.7` is still a scaffold, but it now includes a working end-to-end personality slice:
+Version `0.0.8` focuses on foundation work for the most reusable parts of the stack: **persona, emotes, routines, and accessories**.
 
-- FastAPI scaffold with character, routine, memory, accessory, plugin, and event endpoints
-- reusable Sweetie Bot plugins for persona, dialogue, attention, emotes, routines, and accessories
-- selectable dialogue backends:
-  - local rule-based fallback
-  - OpenAI Responses API adapter
-  - Anthropic Messages API adapter
-- configurable CERBERUS audio adapter that can forward spoken replies to a Go2 onboard audio endpoint
-- browser-side operator console scaffold with live event streaming and LLM/audio status
-
-## Repo layout
-
-```text
-upstream_api/      # API/runtime scaffold that mirrors a CERBERUS-style host
-upstream-web/      # Browser controller scaffold
-plugins/           # Reusable personality and behavior plugins
-sweetiebot/        # Shared character runtime modules
-sweetiebot-assets/ # Persona, emote, routine, and prompt content
-sweetiebot-ops/    # Deployment and ops scaffolding
-```
+New in this pass:
+- persona profiles now define default emotes, accessory scenes, and routine tags
+- emotes are resolved through a reusable expression plugin with body profiles and accessory scene application
+- routines can now be previewed as a simple execution plan before they are started
+- accessories are exposed as reusable scene assets rather than a flat capability blob
+- runtime endpoints now expose foundation data for authoring and controller UIs
 
 ## Quick start
 
@@ -41,11 +49,11 @@ python -m upstream_api.app.main
 
 ### Web scaffold
 
-Open `upstream-web/src/index.html` in a simple local static server and point it at the API base URL.
+Serve `upstream-web/src/` from any simple static file server and point it at the API base URL.
 
 ## Personality backends
 
-By default, the project uses the local rule-based dialogue manager. To switch to an API-backed personality layer, set one of the following:
+The default backend is local and deterministic, which keeps scaffolding easy to test. To switch the personality layer to an API-backed provider:
 
 ### OpenAI
 
@@ -63,7 +71,7 @@ export ANTHROPIC_API_KEY=your_key_here
 export ANTHROPIC_MODEL=claude-sonnet-4-5
 ```
 
-### CERBERUS / Go2 onboard audio
+## CERBERUS / Go2 onboard audio
 
 ```bash
 export CERBERUS_AUDIO_BASE_URL=http://127.0.0.1:9000
@@ -71,28 +79,34 @@ export CERBERUS_AUDIO_PATH=/audio/speak
 export CERBERUS_AUDIO_VOICE=sweetie-default
 ```
 
-The audio adapter is intentionally configurable because CERBERUS forks often expose hardware features through slightly different routes.
-
 ## Useful endpoints
 
 - `GET /character`
 - `GET /character/personas`
+- `GET /character/foundation`
 - `GET /character/llm`
-- `POST /character/say`
 - `POST /character/persona`
+- `POST /character/say`
+- `POST /character/emote`
+- `GET /emotes`
+- `GET /routines`
+- `GET /routines/{routine_id}/plan`
+- `GET /accessories`
+- `GET /accessories/scenes`
+- `POST /accessories/scene`
 - `GET /plugins`
 - `GET /events`
 - `WS /ws/events`
 
-## Development notes
+## Development approach
 
-This project is intentionally puzzle-shaped. The goal is to build small, testable slices first:
+This repo is intentionally built in small, testable slices. The current priority order is:
 
-1. persona and mood shaping
-2. dialogue and speech
-3. routines and choreography
-4. attention and social behaviors
-5. hardware-specific polish
+1. reusable persona and mood shaping
+2. emote resolution and accessory scene application
+3. routine planning and choreography metadata
+4. dialogue and speech queueing
+5. hardware-specific polish for a real CERBERUS fork
 
 ## Documentation
 
@@ -101,5 +115,6 @@ This project is intentionally puzzle-shaped. The goal is to build small, testabl
 - [Requirements](docs/REQUIREMENTS.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [API contract](docs/contracts/API.md)
-- [Event contract](docs/contracts/EVENTS.md)
+- [Assets contract](docs/contracts/ASSETS.md)
+- [Routines contract](docs/contracts/ROUTINES.md)
 - [Changelog](CHANGELOG.md)

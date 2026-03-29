@@ -19,3 +19,5 @@ class CharacterState:
     attention_target: str | None
     active_routine: str | None
     is_speaking: bool
+    active_emote: str | None = None
+    active_accessory_scene: str | None = None

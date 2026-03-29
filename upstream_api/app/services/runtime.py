@@ -36,13 +36,14 @@ class RuntimeState:
     def __init__(self) -> None:
         root = Path(__file__).resolve().parents[3]
         assets = root / "sweetiebot-assets"
+        self.assets_root = assets
         self.event_bus = EventBus()
         self.persona_machine = PersonaStateMachine()
         self.dialogue = DialogueManager()
         self.emotes = EmoteMapper(assets / "emotes")
         self.attention = AttentionManager()
         self.memory = MemoryStore()
-        self.accessories = AccessoryManager()
+        self.accessories = AccessoryManager(assets / "accessories")
         self.audio_client = CerberusAudioClient(
             base_url=settings.cerberus_audio_base_url,
             speak_path=settings.cerberus_audio_path,
@@ -70,6 +71,8 @@ class RuntimeState:
             attention_target=None,
             active_routine=None,
             is_speaking=False,
+            active_emote=None,
+            active_accessory_scene=None,
         )
         self._bootstrap_routines(assets)
         self.apply_persona("sweetiebot_default", emit=False)
@@ -117,6 +120,7 @@ class RuntimeState:
                 "personas": self.list_personas(),
                 "plugins": self.get_plugins(),
                 "llm": self.get_llm_status(),
+                "emotes": self.get_emotes(),
             },
         )
 
@@ -126,8 +130,21 @@ class RuntimeState:
     def unsubscribe_events(self, queue: asyncio.Queue[dict[str, Any]]) -> None:
         self.event_bus.unsubscribe(queue)
 
+    def current_persona(self) -> dict[str, Any]:
+        return self.persona_catalog[self.character.persona_id]
+
     def list_personas(self) -> list[dict[str, Any]]:
         return self.plugins["sweetiebot_persona"].list_personas(self.persona_catalog)
+
+    def get_persona_foundation(self) -> dict[str, Any]:
+        persona = self.current_persona()
+        profile = self.plugins["sweetiebot_persona"].profile_for(persona)
+        return {
+            "profile": profile,
+            "available_emotes": self.get_emotes()["items"],
+            "available_routines": self.get_routines()["items"],
+            "available_accessory_scenes": self.get_accessories()["catalog"],
+        }
 
     def get_plugins(self) -> dict[str, Any]:
         return {"items": [plugin.describe() for plugin in self.plugins.values()]}
@@ -143,6 +160,14 @@ class RuntimeState:
             dialogue_manager=self.dialogue,
             character=self.character,
         )
+        scene_id = payload["persona"].get("default_accessory_scene")
+        if scene_id:
+            applied = self.plugins["sweetiebot_accessories"].apply_scene(
+                accessory_manager=self.accessories,
+                scene_id=scene_id,
+                reason="persona",
+            )
+            payload["accessory_scene"] = applied
         if emit:
             self._emit("persona.selected", "sweetiebot_persona", payload)
         return payload
@@ -171,6 +196,16 @@ class RuntimeState:
             "active_detail": active,
         }
 
+    def get_routine_plan(self, routine_id: str) -> dict[str, Any]:
+        return self.plugins["sweetiebot_routines"].plan_routine(
+            routine_registry=self.routines,
+            persona=self.current_persona(),
+            routine_id=routine_id,
+        )
+
+    def get_emotes(self) -> dict[str, Any]:
+        return self.plugins["sweetiebot_emotes"].list_emotes(emote_mapper=self.emotes)
+
     def say(self, text: str) -> dict[str, Any]:
         payload = self.plugins["sweetiebot_dialogue"].handle_text(
             text=text,
@@ -186,6 +221,10 @@ class RuntimeState:
     def emote(self, emote_id: str | None = None) -> dict[str, Any]:
         payload = self.plugins["sweetiebot_emotes"].select_emote(
             emote_mapper=self.emotes,
+            accessories_plugin=self.plugins["sweetiebot_accessories"],
+            accessory_manager=self.accessories,
+            character=self.character,
+            persona=self.current_persona(),
             mood=self.character.mood.value,
             emote_id=emote_id,
         )
@@ -198,6 +237,7 @@ class RuntimeState:
             routine_registry=self.routines,
             persona_machine=self.persona_machine,
             character=self.character,
+            persona=self.current_persona(),
             routine_id=routine_id,
         )
         self._emit("routine.started", "sweetiebot_routines", payload)
@@ -206,6 +246,7 @@ class RuntimeState:
             "mood": self.character.mood.value,
             "title": payload["title"],
             "step_count": payload["step_count"],
+            "estimated_duration_ms": payload["estimated_duration_ms"],
             "steps": payload["steps"],
         }
 
@@ -242,6 +283,16 @@ class RuntimeState:
     def get_accessories(self) -> dict[str, Any]:
         payload = self.accessories.capabilities()
         payload["audio"] = self.audio_client.describe()
+        return payload
+
+    def apply_accessory_scene(self, scene_id: str | None) -> dict[str, Any]:
+        payload = self.plugins["sweetiebot_accessories"].apply_scene(
+            accessory_manager=self.accessories,
+            scene_id=scene_id,
+            reason="manual",
+        )
+        self.character.active_accessory_scene = payload.get("scene_id")
+        self._emit("accessory.scene_applied", "sweetiebot_accessories", payload)
         return payload
 
     def recent_events(self) -> list[dict[str, Any]]:

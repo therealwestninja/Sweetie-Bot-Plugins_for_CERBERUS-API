@@ -11,6 +11,7 @@ class EmoteCommand:
     duration_ms: int = 1500
     accessories: dict[str, str] = field(default_factory=dict)
     tags: list[str] = field(default_factory=list)
+    body_profile: dict[str, str] = field(default_factory=dict)
 
 
 class EmoteMapper:
@@ -41,15 +42,18 @@ class EmoteMapper:
             "bashful": "bashful_shift",
             "apologetic": "bashful_shift",
             "excited": "happy_bounce",
+            "protective": "curious_headtilt",
+            "sleepy": "bashful_shift",
         }
         emote_id = mapping.get(mood, "curious_headtilt")
-        return self._command_for_id(emote_id)
+        return self.command_for_id(emote_id)
 
-    def _command_for_id(self, emote_id: str) -> EmoteCommand:
+    def command_for_id(self, emote_id: str) -> EmoteCommand:
         payload = self._catalog.get(emote_id, {"id": emote_id, "default_duration_ms": 1500})
         return EmoteCommand(
             emote_id=payload["id"],
             duration_ms=payload.get("default_duration_ms", 1500),
             accessories=payload.get("linked_accessories", {}),
             tags=payload.get("tags", []),
+            body_profile=payload.get("body_profile", {}),
         )

@@ -2,53 +2,30 @@
 
 ## Intent
 
-Sweetie Bot is built as a thin character layer over a CERBERUS-style runtime. The API layer owns authoritative robot state, routines, plugin hosting, event streaming, and hardware adapters. The web layer is an operator console and authoring surface.
+Sweetie Bot Fork treats the CERBERUS-facing runtime as the stable control plane and pushes character behavior into reusable plugins.
 
-## Runtime split
+## Core split
 
-### `upstream_api/`
-- FastAPI scaffold
-- runtime state host
-- plugin inventory
-- event bus
-- LLM provider selection
-- CERBERUS audio adapter
+- `upstream_api/` owns state, routes, events, and integration seams
+- `plugins/` owns reusable character behavior modules
+- `sweetiebot/` owns shared runtime helpers used by those plugins
+- `sweetiebot-assets/` owns authorable data files for personas, routines, emotes, and accessories
+- `upstream-web/` owns operator and authoring UI scaffolding
 
-### `plugins/`
-Reusable modules that can be transplanted into other CERBERUS forks:
-- `sweetiebot_persona`
-- `sweetiebot_dialogue`
-- `sweetiebot_attention`
-- `sweetiebot_emotes`
-- `sweetiebot_routines`
-- `sweetiebot_accessories`
+## Foundation plugins
 
-### `sweetiebot/`
-Shared, repo-local runtime code:
-- dialogue manager and provider adapters
-- accessory audio adapter
-- persona loading and state logic
-- emote mapping
-- routine registry
+### `sweetiebot_persona`
+Owns persona profile selection, mood shaping, and persona defaults such as the preferred idle emote and accessory scene.
 
-### `upstream-web/`
-Browser-side operator console scaffold with:
-- persona switching
-- dialogue testing
-- routine triggering
-- plugin inventory
-- live event stream
-- LLM and audio status panel
+### `sweetiebot_emotes`
+Owns expression selection and translates high-level mood or explicit emote requests into body-profile metadata plus accessory-scene hints.
 
-## Dialogue path
+### `sweetiebot_routines`
+Owns routine planning and simple routine start metadata. The current planner produces a previewable step list with estimated timing.
 
-1. operator or user text enters `/character/say`
-2. `sweetiebot_dialogue` chooses the active provider
-3. provider generates a short in-character reply
-4. reply metadata is returned to the caller
-5. the reply is optionally forwarded to the CERBERUS audio endpoint for onboard playback
-6. `dialogue.reply_ready` is emitted to the live event stream
+### `sweetiebot_accessories`
+Owns accessory scene cataloging and application. In a real CERBERUS integration this plugin would be the boundary between character intent and hardware-specific lighting, tail, display, or audio adapters.
 
-## Why plugin-heavy?
+## Why plugin-first
 
-This repo is trying to stay useful outside Sweetie Bot. Persona selection, LLM-backed short-form dialogue, routine metadata, and CERBERUS audio dispatch are all generic enough to be useful to other character robot projects.
+A plugin-first foundation makes the work more reusable for other CERBERUS users. A convention bot, a companion bot, and a demo kiosk may all want the same persona, emote, or accessory logic even if they differ in hardware or UI.

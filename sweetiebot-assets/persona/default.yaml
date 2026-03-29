@@ -13,4 +13,10 @@ dialogue_style:
 motion_style:
   energy_bias: gentle
   default_posture: attentive
+defaults:
+  emote: curious_headtilt
+  accessory_scene: eyes_curious
+routine_tags:
+  - greeting
+  - attention
 safety_profile: public_demo

@@ -1,0 +1,10 @@
+{
+  "id": "eyes_curious",
+  "kind": "face_expression",
+  "label": "Curious Eyes",
+  "channels": {
+    "eyes": "curious",
+    "brightness": "soft"
+  },
+  "required_capabilities": ["face_display"]
+}

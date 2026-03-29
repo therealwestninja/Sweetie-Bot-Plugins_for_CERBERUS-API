@@ -39,6 +39,11 @@ def get_personas(runtime: RuntimeState = Depends(get_runtime)) -> dict:
     return {"items": runtime.list_personas()}
 
 
+@router.get("/foundation")
+def get_foundation(runtime: RuntimeState = Depends(get_runtime)) -> dict:
+    return runtime.get_persona_foundation()
+
+
 @router.post("/persona")
 def set_persona(payload: PersonaRequest, runtime: RuntimeState = Depends(get_runtime)) -> dict:
     try:

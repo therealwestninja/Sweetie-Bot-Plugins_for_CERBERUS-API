@@ -13,4 +13,10 @@ dialogue_style:
 motion_style:
   energy_bias: calm
   default_posture: attentive
+defaults:
+  emote: bashful_shift
+  accessory_scene: tail_wag_soft
+routine_tags:
+  - comfort
+  - greeting
 safety_profile: supervised_private

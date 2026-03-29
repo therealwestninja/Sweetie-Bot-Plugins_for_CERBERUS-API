@@ -19,6 +19,7 @@ class RoutineRegistry:
         payload.setdefault("id", routine_id)
         payload.setdefault("title", routine_id)
         payload.setdefault("steps", [])
+        payload.setdefault("required_capabilities", [])
         self.register(routine_id, payload)
 
     def get(self, routine_id: str) -> dict | None:

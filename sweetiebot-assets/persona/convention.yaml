@@ -13,4 +13,10 @@ dialogue_style:
 motion_style:
   energy_bias: showy
   default_posture: inviting
+defaults:
+  emote: happy_bounce
+  accessory_scene: eyes_happy
+routine_tags:
+  - performance
+  - greeting
 safety_profile: public_demo

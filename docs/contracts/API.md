@@ -2,49 +2,28 @@
 
 ## Character
 
-### `GET /character`
-Return the current character state.
+- `GET /character` returns current character state
+- `GET /character/personas` returns persona profiles
+- `GET /character/foundation` returns the active persona profile plus authoring catalogs for emotes, routines, and accessories
+- `GET /character/llm` returns dialogue provider and audio sink metadata
+- `POST /character/persona` switches personas
+- `POST /character/say` produces a spoken reply
+- `POST /character/emote` resolves an emote and accessory scene
+- `POST /character/routine` starts a routine
+- `POST /character/focus` updates attention target
+- `POST /character/cancel` clears active speech/routine state
 
-### `GET /character/personas`
-Return available persona presets.
+## Emotes
 
-### `POST /character/persona`
-Switch the active persona.
+- `GET /emotes` returns the emote catalog
 
-### `GET /character/llm`
-Return the active dialogue provider, configured model, and CERBERUS audio sink status.
+## Routines
 
-### `POST /character/say`
-Accept a text utterance, generate an in-character reply, and attempt audio dispatch.
+- `GET /routines` returns the routine catalog
+- `GET /routines/{routine_id}/plan` returns a preview plan with estimated duration and normalized step metadata
 
-Example response:
+## Accessories
 
-```json
-{
-  "heard": "hello",
-  "reply": "Hi everypony! Show mode is live and I am ready to sparkle.",
-  "intent": "greet",
-  "emote_id": "curious_headtilt",
-  "provider": "openai",
-  "model": "gpt-5.4",
-  "audio": {
-    "ok": true,
-    "sink": "cerberus_go2_onboard_audio",
-    "detail": "speech dispatched",
-    "status_code": 200
-  }
-}
-```
-
-## Plugins
-
-### `GET /plugins`
-Return plugin inventory and declared capabilities.
-
-## Events
-
-### `GET /events`
-Return recent event history.
-
-### `WS /ws/events`
-Return a live stream of snapshots and state-change events.
+- `GET /accessories` returns capabilities, accessory scene catalog, active scene, and audio sink metadata
+- `GET /accessories/scenes` returns only the accessory scene catalog
+- `POST /accessories/scene` applies an accessory scene by id

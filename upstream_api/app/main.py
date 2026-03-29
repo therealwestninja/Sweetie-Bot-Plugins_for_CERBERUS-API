@@ -9,6 +9,7 @@ from upstream_api.app.routes import (
     accessories,
     attention,
     character,
+    emotes,
     events,
     memory,
     plugins,
@@ -27,6 +28,7 @@ app.add_middleware(
 
 app.include_router(character.router)
 app.include_router(attention.router)
+app.include_router(emotes.router)
 app.include_router(routines.router)
 app.include_router(memory.router)
 app.include_router(accessories.router)
