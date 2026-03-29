@@ -21,6 +21,22 @@ def test_say_updates_mood_and_returns_reply() -> None:
     assert payload["emote_id"] == "curious_headtilt"
 
 
+def test_persona_list_and_switch_flow() -> None:
+    personas = client.get("/character/personas")
+    assert personas.status_code == 200
+    assert any(item["id"] == "sweetiebot_convention" for item in personas.json()["items"])
+
+    switched = client.post("/character/persona", json={"persona_id": "sweetiebot_convention"})
+    assert switched.status_code == 200
+    payload = switched.json()
+    assert payload["character"]["persona_id"] == "sweetiebot_convention"
+    assert payload["character"]["mood"] == "excited"
+
+    greeting = client.post("/character/say", json={"text": "hello"})
+    assert greeting.status_code == 200
+    assert "sparkle" in greeting.json()["reply"].lower()
+
+
 def test_routine_and_cancel_flow() -> None:
     response = client.post("/character/routine", json={"routine_id": "greeting_01"})
     assert response.status_code == 200
@@ -39,12 +55,16 @@ def test_events_endpoint_and_websocket_stream() -> None:
     with client.websocket_connect("/ws/events") as websocket:
         snapshot = websocket.receive_json()
         assert snapshot["type"] == "events.snapshot"
-        assert snapshot["payload"]["character"]["persona_id"] == "sweetiebot_default"
+        assert snapshot["payload"]["character"]["persona_id"] in {
+            "sweetiebot_default",
+            "sweetiebot_convention",
+            "sweetiebot_companion",
+        }
 
         client.post(
-            "/character/focus",
-            json={"target_id": "guest-01", "confidence": 0.9, "mode": "person"},
+            "/character/persona",
+            json={"persona_id": "sweetiebot_companion"},
         )
-        event = websocket.receive_json()
-        assert event["type"] == "attention.target_changed"
-        assert event["payload"]["target_id"] == "guest-01"
+        persona_event = websocket.receive_json()
+        assert persona_event["type"] == "persona.selected"
+        assert persona_event["payload"]["character"]["persona_id"] == "sweetiebot_companion"

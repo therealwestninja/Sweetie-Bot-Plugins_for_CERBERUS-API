@@ -4,7 +4,7 @@ import { loadAccessories } from "./accessories.js";
 import { submitDialogue } from "./dialogue.js";
 import { connectEventStream } from "./events.js";
 import { loadMemorySummary, summarizeMemory } from "./memory.js";
-import { personaPresets } from "./persona.js";
+import { applyPersonaPreset, fetchPersonaPresets } from "./persona.js";
 import { loadRoutineList, startRoutine } from "./routines.js";
 
 let eventSocket = null;
@@ -19,21 +19,29 @@ function renderJson(selector, payload) {
 
 function appendActivity(entry) {
   const host = $("#activity-log");
-  const lines = host.textContent.trim() ? host.textContent.split("
-
-") : [];
+  const lines = host.textContent.trim() ? host.textContent.split("\n\n") : [];
   lines.unshift(JSON.stringify(entry, null, 2));
-  host.textContent = lines.slice(0, 12).join("
-
-");
+  host.textContent = lines.slice(0, 12).join("\n\n");
 }
 
-function renderPersonaPresets() {
+async function renderPersonaPresets(activePersonaId = null) {
   const host = $("#persona-presets");
   host.innerHTML = "";
-  for (const preset of personaPresets) {
+  const presets = await fetchPersonaPresets();
+  for (const preset of presets) {
     const li = document.createElement("li");
-    li.textContent = `${preset.label} — ${preset.flavor}`;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = `${preset.display_name} — ${preset.motion_style?.energy_bias ?? "balanced"}`;
+    if (preset.id === activePersonaId) {
+      button.disabled = true;
+    }
+    button.addEventListener("click", async () => {
+      const result = await applyPersonaPreset(preset.id);
+      appendActivity(result);
+      await refreshDashboard();
+    });
+    li.appendChild(button);
     host.appendChild(li);
   }
 }
@@ -50,6 +58,7 @@ async function refreshDashboard() {
   renderJson("#character-state", character);
   renderJson("#accessory-state", accessories);
   renderJson("#memory-state", summarizeMemory(memory));
+  await renderPersonaPresets(character.persona_id);
 
   const routineList = $("#routine-list");
   routineList.innerHTML = "";
@@ -74,6 +83,7 @@ function handleEvent(event) {
     renderJson("#accessory-state", snapshot.accessories);
     renderJson("#memory-state", summarizeMemory(snapshot.memory));
     $("#status-line").textContent = `${snapshot.character.persona_id} · mood=${snapshot.character.mood} · speaking=${snapshot.character.is_speaking} · stream=live`;
+    void renderPersonaPresets(snapshot.character.persona_id);
     return;
   }
 
@@ -81,6 +91,7 @@ function handleEvent(event) {
   if (character) {
     renderJson("#character-state", character);
     $("#status-line").textContent = `${character.persona_id} · mood=${character.mood} · speaking=${character.is_speaking} · stream=live`;
+    void renderPersonaPresets(character.persona_id);
   }
 }
 
@@ -137,7 +148,6 @@ function wireEmoteActions() {
 }
 
 async function main() {
-  renderPersonaPresets();
   wireApiSettings();
   wireDialogueForm();
   wireEmoteActions();

@@ -45,6 +45,7 @@ class RuntimeState:
             is_speaking=False,
         )
         self._bootstrap_routines(assets)
+        self.apply_persona("sweetiebot_default", emit=False)
         self._emit_runtime_snapshot(reason="boot")
 
     def _bootstrap_routines(self, assets: Path) -> None:
@@ -68,6 +69,7 @@ class RuntimeState:
                 "routines": self.get_routines(),
                 "memory": self.get_memory_summary(),
                 "accessories": self.get_accessories(),
+                "personas": self.list_personas(),
             },
         )
 
@@ -76,6 +78,41 @@ class RuntimeState:
 
     def unsubscribe_events(self, queue: asyncio.Queue[dict[str, Any]]) -> None:
         self.event_bus.unsubscribe(queue)
+
+    def list_personas(self) -> list[dict[str, Any]]:
+        personas = []
+        for persona in self.persona_catalog.values():
+            personas.append(
+                {
+                    "id": persona["id"],
+                    "display_name": persona.get("display_name", persona["id"]),
+                    "dialogue_style": persona.get("dialogue_style", {}),
+                    "motion_style": persona.get("motion_style", {}),
+                    "safety_profile": persona.get("safety_profile", "unknown"),
+                }
+            )
+        return personas
+
+    def apply_persona(self, persona_id: str, emit: bool = True) -> dict[str, Any]:
+        persona = self.persona_catalog.get(persona_id)
+        if not persona:
+            raise KeyError(persona_id)
+        self.character.persona_id = persona_id
+        self.dialogue.configure_persona(persona)
+        energy_bias = persona.get("motion_style", {}).get("energy_bias", "gentle")
+        if energy_bias == "showy":
+            self.character.mood = MoodState.EXCITED
+        elif energy_bias == "calm":
+            self.character.mood = MoodState.HAPPY
+        else:
+            self.character.mood = MoodState.CURIOUS
+        payload = {
+            "persona": persona,
+            "character": self.get_character(),
+        }
+        if emit:
+            self._emit("persona.selected", "sweetiebot_persona", payload)
+        return payload
 
     def get_character(self) -> dict[str, Any]:
         return asdict(self.character)

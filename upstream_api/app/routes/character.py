@@ -8,7 +8,7 @@ router = APIRouter(prefix="/character", tags=["character"])
 
 
 class SayRequest(BaseModel):
-    text: str = Field(min_length=1, max_length=400)
+    text: str = Field(..., min_length=1, max_length=400)
 
 
 class EmoteRequest(BaseModel):
@@ -16,18 +16,27 @@ class EmoteRequest(BaseModel):
 
 
 class RoutineRequest(BaseModel):
-    routine_id: str = Field(min_length=1)
+    routine_id: str = Field(..., min_length=1)
 
 
 class FocusRequest(BaseModel):
-    target_id: str = Field(min_length=1)
+    target_id: str = Field(..., min_length=1)
     confidence: float = Field(default=1.0, ge=0.0, le=1.0)
     mode: str = Field(default="person")
+
+
+class PersonaRequest(BaseModel):
+    persona_id: str = Field(..., min_length=1)
 
 
 @router.get("")
 def get_character(runtime: RuntimeState = Depends(get_runtime)) -> dict:
     return runtime.get_character()
+
+
+@router.get("/personas")
+def get_personas(runtime: RuntimeState = Depends(get_runtime)) -> dict:
+    return {"items": runtime.list_personas()}
 
 
 @router.post("/say")
@@ -45,13 +54,20 @@ def routine(payload: RoutineRequest, runtime: RuntimeState = Depends(get_runtime
     try:
         return runtime.run_routine(payload.routine_id)
     except KeyError as exc:
-        detail = f"Unknown routine: {payload.routine_id}"
-        raise HTTPException(status_code=404, detail=detail) from exc
+        raise HTTPException(status_code=404, detail=f"Unknown routine: {exc}")
 
 
 @router.post("/focus")
 def focus(payload: FocusRequest, runtime: RuntimeState = Depends(get_runtime)) -> dict:
     return runtime.focus(payload.target_id, payload.confidence, payload.mode)
+
+
+@router.post("/persona")
+def select_persona(payload: PersonaRequest, runtime: RuntimeState = Depends(get_runtime)) -> dict:
+    try:
+        return runtime.apply_persona(payload.persona_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=f"Unknown persona: {exc}")
 
 
 @router.post("/cancel")

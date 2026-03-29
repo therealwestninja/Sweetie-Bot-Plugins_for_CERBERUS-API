@@ -134,3 +134,10 @@ See:
 - FastAPI character scaffold with REST routes and a live WebSocket event stream at `/ws/events`.
 - Browser operator console scaffold with live activity updates wired to the stream.
 - In-memory event bus, routine triggers, emote triggers, and dialogue test bench for the first vertical slice.
+
+
+## Latest scaffold progress
+
+- `0.0.5`: persona preset switching now works end-to-end across API, runtime, websocket events, and the web controller.
+- `0.0.4`: live event streaming scaffolded with runtime snapshots.
+- `0.0.3`: first usable API and controller slice.

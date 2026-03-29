@@ -4,6 +4,15 @@ export async function loadCharacterState() {
   return apiGet("/character");
 }
 
+export async function loadPersonaList() {
+  const payload = await apiGet("/character/personas");
+  return payload.items;
+}
+
+export async function switchPersona(personaId) {
+  return apiPost("/character/persona", { persona_id: personaId });
+}
+
 export async function triggerEmote(emoteId = null) {
   return apiPost("/character/emote", { emote_id: emoteId });
 }
