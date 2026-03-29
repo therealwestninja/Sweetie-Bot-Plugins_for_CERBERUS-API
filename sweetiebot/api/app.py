@@ -17,6 +17,13 @@ from sweetiebot.integration.schemas import (
     WSEvent,
     WSEventType,
 )
+from sweetiebot.integration.first_slice import (
+    adapt_nudge_response,
+    make_snapshot_payload,
+    publish_canonical_nudge_event,
+    run_cerberus_stub,
+)
+from sweetiebot.api.nudge_patch import attach_nudge_and_ws
 from sweetiebot.memory.context import build_context_summary, extract_recent_commands
 from sweetiebot.observability.structured_log import get_ledger, get_logger
 from sweetiebot.persona.loader import PERSONA_LIBRARY
@@ -224,6 +231,12 @@ def _runtime_health(runtime: SweetieBotRuntime) -> dict[str, Any]:
 
 
 def create_app(
+attach_nudge_and_ws(
+    app,
+    get_character_state,
+    get_accessories,
+    get_memory_summary
+)
     runtime_factory: Callable[[], SweetieBotRuntime] | None = None,
     *,
     legacy_say_response: bool = False,
@@ -692,20 +705,21 @@ def create_app(
             # snapshot.  All subsequent events (persona changes, dialogue
             # replies, integration events) arrive through the queue so
             # that tests and clients always know the message ordering.
-            snap_payload = {
-                **bridge.snapshot_payload(),
-                "safety_mode": gate.safety_mode.value,
-                "gate":        gate.snapshot(),
-                "mapper":      mapper.snapshot(),
-                "recent_decisions": ledger.recent(limit=5),
-                # typed fields for new clients
-                "schema_version": "1.0",
-                "event_type": WSEventType.EVENTS_SNAPSHOT.value,
-                "replay_safe": True,
-            }
-            await ws.send_json(
-                EventEnvelope("events.snapshot", "sweetiebot_api", snap_payload).to_dict()
-            )
+snap_payload = make_snapshot_payload(
+    bridge=bridge,
+    gate=gate,
+    mapper=mapper,
+    ledger=ledger,
+)
+
+await ws.send_json({
+    "type": "events.snapshot",
+    "source": "sweetiebot_api",
+    "schema_version": "1.0",
+    "replay_safe": True,
+    "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+    "payload": snap_payload,
+})
 
             # ── Live event stream ──────────────────────────────────────
             while True:
@@ -744,16 +758,14 @@ def create_app(
         The micro_reaction is what fires immediately.
         The suggested_action is a follow-on that passes through the safety gate.
         """
-        from sweetiebot.behavior.nudge_handler import NudgeType
-
-        char_state = runtime.character_state()
-        result = nudge_handler.handle(
-            request.nudge_type,
-            current_mood=char_state.get("mood", "calm"),
-            active_routine=char_state.get("active_routine"),
-            safe_mode=char_state.get("safe_mode", False),
-            degraded_mode=char_state.get("degraded_mode", False),
-        )
+normalized, payload = adapt_nudge_response(raw=request, bridge=bridge)
+await publish_canonical_nudge_event(events=events, payload=payload)
+asyncio.create_task(run_cerberus_stub(events=events, decision=payload["decision"]))
+return {
+    "reaction": payload["reaction"],
+    "decision": payload["decision"],
+    "nudge_type": normalized["intent"],
+}
 
         # Record to ledger and telemetry
         ledger.record("nudge.received", {
