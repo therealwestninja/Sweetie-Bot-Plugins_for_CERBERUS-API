@@ -1,13 +1,17 @@
 # Architecture
 
-User → Dialogue → Persona → Planner → CERBERUS → Robot
+## Flow
+User Input → Memory → Mood → Attention → Behavior → Routine → Output
 
 ## Systems
-- Persona
-- Dialogue
-- Routines
-- Emotes
-- Accessories
+- Memory
+- Mood
+- Attention
+- Behavior
+- Routine Arbitration
+- Telemetry
 
-## Rule
-Never bypass CERBERUS safety.
+## Design Goals
+- Modular
+- Observable
+- Replaceable

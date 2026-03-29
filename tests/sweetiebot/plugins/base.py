@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
+from sweetiebot.attention.models import AttentionSuggestion
 from sweetiebot.memory.models import MemoryQuery, MemoryRecord
 from sweetiebot.telemetry.models import TraceEvent
 
@@ -49,4 +50,19 @@ class TelemetrySinkPlugin(BasePlugin):
         raise NotImplementedError
 
     def recent_events(self, limit: int = 25) -> List[TraceEvent]:
+        raise NotImplementedError
+
+
+class AttentionStrategyPlugin(BasePlugin):
+    plugin_type = "attention_strategy"
+
+    def suggest_attention(
+        self,
+        *,
+        user_text: Optional[str],
+        current_focus: Optional[str],
+        current_mood: str,
+        safe_mode: bool = False,
+        degraded_mode: bool = False,
+    ) -> AttentionSuggestion:
         raise NotImplementedError

@@ -1,90 +1,59 @@
-# Sweetie-Bot Fork
-> Aspirational character-robot monorepo for a CERBERUS/Unitree Go2-based "Sweetie-Bot" build.
+# 🌸 Sweetie Bot (CERBERUS API Framework)
 
-This repository is an **aspirational scaffold** for a staged, convention-first, companion-later character robot project.
-It is designed to:
+A modular, plugin-driven AI character runtime designed for expressive, reactive, and embodied agents.
 
-- preserve an upstream robotics/runtime core
-- preserve an upstream web/operator console
-- add a **Sweetie-Bot character layer**
-- separate runtime code from character assets and operational tooling
-- stay merge-friendly and documentation-heavy from day one
+## What is Sweetie Bot?
+Sweetie Bot is a framework for building a stateful, reactive AI character with memory, mood, attention, behavior, and telemetry.
+
+## Core Pipeline
+Input → Memory → Mood → Attention → Behavior → Routine Arbitration → Output
+
+## Features
+- Character State (mood, focus, routines)
+- Memory system
+- Mood engine
+- Attention system
+- Behavior director
+- Routine arbitration
+- Telemetry system
+- Plugin architecture
+- FastAPI + CLI interfaces
+
+## Installation
+```bash
+git clone https://github.com/therealwestninja/Sweetie-Bot_for_CERBERUS-API.git
+cd Sweetie-Bot_for_CERBERUS-API
+pip install -r requirements.txt
+```
+
+## Run API
+```bash
+uvicorn sweetiebot.api.app:app --reload
+```
+
+## Run CLI
+```bash
+python -m sweetiebot.cli.main state-show
+```
+
+## Project Structure
+sweetiebot/
+├── api/
+├── behavior/
+├── mood/
+├── attention/
+├── routines/
+├── telemetry/
+├── plugins/
+├── state/
+├── memory/
+├── runtime.py
 
 ## Status
-**Version:** 0.0.1  
-**State:** aspirational scaffold / architecture seed / non-production
+Early framework, core systems complete, expanding features.
 
-This repo intentionally contains:
-- structure
-- documentation
-- interface contracts
-- placeholder modules
-- sample schemas
-- sample plugin code
-- starter assets
-- stubs for future implementation
-
-It intentionally does **not** claim to be a working robot runtime.
-
-## Monorepo layout
-
-```text
-sweetiebot-fork/
-├── upstream-api/                  # tracked integration surface for CERBERUS API
-├── upstream-web/                  # tracked integration surface for CERBERUS web UI
-├── sweetiebot/                    # character-layer code
-├── plugins/                       # Sweetie-Bot runtime plugins
-├── sweetiebot-assets/             # persona, dialogue, emotes, routines, prompts
-├── sweetiebot-ops/                # deploy/replay/runbooks
-├── docs/                          # roadmap, vision, ADRs, safety, architecture
-├── tools/                         # extractors, packagers, log-review helpers
-├── tests/                         # contract and scaffold tests
-└── scripts/                       # bootstrap, packaging, dev helpers
-```
-
-## Design principles
-
-1. **Fork, do not rewrite.**
-2. **Safety always beats charm.**
-3. **Convention demo before open-ended companion.**
-4. **Character content is data, not hard-coded behavior.**
-5. **Perception informs behavior, but does not directly command actuators.**
-6. **All high-level actions funnel through the robot runtime and safety layers.**
-
-## Repo goals
-
-- give the project a clean starting point for GitHub
-- define ownership boundaries between runtime, UI, assets, and operations
-- make future implementation less chaotic
-- document intended interfaces before deep coding begins
-
-## Quick start
-
-```bash
-git clone <your-fork-url>
-cd sweetiebot-fork
-python scripts/bootstrap.py
-python scripts/tree.py
-```
-
-## Important note
-
-This repository is a **starter skeleton** only. Before becoming real:
-- wire it to actual upstream repositories
-- replace placeholders with real integration code
-- validate sim vs hardware behavior
-- build and enforce a real safety case
-- test every motion on hardware before public use
-
-## Documents
-
-- [Vision](docs/VISION.md)
-- [Roadmap](docs/ROADMAP.md)
-- [Requirements](docs/REQUIREMENTS.md)
-- [Architecture](docs/ARCHITECTURE.md)
-- [Changelog](CHANGELOG.md)
-- [Contributing](CONTRIBUTING.md)
-- [Safety Case](docs/SAFETY_CASE.md)
-
-## Release
-Initial aspirational scaffold released on 2026-03-29.
+## Future
+- Perception system
+- LLM dialogue
+- Hardware integration
+- Advanced behaviors

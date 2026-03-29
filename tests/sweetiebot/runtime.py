@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from typing import Dict, Any, List, Optional
 
+from sweetiebot.attention.models import AttentionSuggestion
 from sweetiebot.behavior.director import BehaviorDirector
 from sweetiebot.memory.models import MemoryQuery, MemoryRecord
 from sweetiebot.mood.engine import MoodEngine
+from sweetiebot.plugins.builtins.attention import RuleBasedAttentionStrategyPlugin
 from sweetiebot.plugins.builtins.memory import InMemoryStorePlugin
 from sweetiebot.plugins.builtins.telemetry import InMemoryTelemetrySinkPlugin
 from sweetiebot.plugins.registry import PluginRegistry
@@ -19,6 +21,7 @@ class SweetieBotRuntime:
         self.registry = PluginRegistry()
         self.registry.register(InMemoryStorePlugin())
         self.registry.register(InMemoryTelemetrySinkPlugin())
+        self.registry.register(RuleBasedAttentionStrategyPlugin())
         self.state: Dict[str, Any] = {
             "safe_mode": False,
             "degraded_mode": False,
@@ -160,6 +163,56 @@ class SweetieBotRuntime:
             "engine": self.mood_engine.snapshot(),
         }
 
+    def suggest_attention(self, user_text: Optional[str] = None) -> Dict[str, Any]:
+        state = self.state_manager.state
+        strategy = self.registry.get_attention_strategy()
+        if strategy is None:
+            suggestion = AttentionSuggestion(
+                target=state.focus_target,
+                reason="no_attention_strategy_available",
+                priority="low",
+                confidence=0.2,
+                source="runtime",
+            )
+            result = suggestion.to_dict()
+        else:
+            result = strategy.suggest_attention(
+                user_text=user_text or state.last_input,
+                current_focus=state.focus_target,
+                current_mood=state.mood,
+                safe_mode=state.safe_mode,
+                degraded_mode=state.degraded_mode,
+            ).to_dict()
+        self.emit_trace(
+            "attention_suggested",
+            f"Attention suggested: {result.get('target')}",
+            source="attention_strategy",
+            payload={"input": user_text, "suggestion": result},
+        )
+        return result
+
+    def apply_attention(self, user_text: Optional[str] = None) -> Dict[str, Any]:
+        suggestion = self.suggest_attention(user_text=user_text)
+        self.state_manager.set_focus(suggestion.get("target"))
+        self.emit_trace(
+            "attention_applied",
+            f"Attention applied: {suggestion.get('target')}",
+            source="attention_strategy",
+            payload={"suggestion": suggestion, "state": self.character_state()},
+        )
+        return {
+            "suggestion": suggestion,
+            "state": self.character_state(),
+        }
+
+    def attention_status(self) -> Dict[str, Any]:
+        strategy = self.registry.get_attention_strategy()
+        return {
+            "strategy": strategy.healthcheck() if strategy else {"healthy": False, "reason": "missing"},
+            "current_focus": self.state_manager.state.focus_target,
+            "suggested_from_state": self.suggest_attention(),
+        }
+
     def suggest_behavior(self, user_text: Optional[str] = None) -> Dict[str, Any]:
         state = self.state_manager.state
         behavior = self.behavior_director.suggest(
@@ -257,6 +310,7 @@ class SweetieBotRuntime:
             "state": self.state,
             "character_state": self.character_state(),
             "mood": self.mood_status(),
+            "attention": self.attention_status(),
             "behavior": self.behavior_status(),
             "telemetry": self.telemetry_status(),
             "plugins": self.registry.plugin_summary(),

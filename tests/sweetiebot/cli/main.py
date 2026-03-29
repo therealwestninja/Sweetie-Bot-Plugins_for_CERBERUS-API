@@ -13,12 +13,19 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("runtime-health")
     sub.add_parser("state-show")
     sub.add_parser("mood-show")
+    sub.add_parser("attention-show")
     sub.add_parser("behavior-show")
     sub.add_parser("routine-arbitration-show")
     sub.add_parser("telemetry-show")
 
     telemetry_events = sub.add_parser("telemetry-events")
     telemetry_events.add_argument("--limit", type=int, default=25)
+
+    attention_suggest = sub.add_parser("attention-suggest")
+    attention_suggest.add_argument("--text")
+
+    attention_apply = sub.add_parser("attention-apply")
+    attention_apply.add_argument("--text")
 
     behavior_suggest = sub.add_parser("behavior-suggest")
     behavior_suggest.add_argument("--text")
@@ -84,6 +91,10 @@ def main(argv=None):
         print(json.dumps(runtime.mood_status(), indent=2))
         return 0
 
+    if args.command == "attention-show":
+        print(json.dumps(runtime.attention_status(), indent=2))
+        return 0
+
     if args.command == "behavior-show":
         print(json.dumps(runtime.behavior_status(), indent=2))
         return 0
@@ -98,6 +109,14 @@ def main(argv=None):
 
     if args.command == "telemetry-events":
         print(json.dumps({"items": runtime.recent_trace_events(limit=args.limit)}, indent=2))
+        return 0
+
+    if args.command == "attention-suggest":
+        print(json.dumps(runtime.suggest_attention(user_text=args.text), indent=2))
+        return 0
+
+    if args.command == "attention-apply":
+        print(json.dumps(runtime.apply_attention(user_text=args.text), indent=2))
         return 0
 
     if args.command == "behavior-suggest":

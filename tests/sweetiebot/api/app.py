@@ -42,6 +42,10 @@ class RoutineArbitrateRequest(BaseModel):
     requested_routine: Optional[str] = None
 
 
+class AttentionSuggestRequest(BaseModel):
+    user_text: Optional[str] = None
+
+
 @app.get("/character/runtime-health")
 def runtime_health():
     return runtime.runtime_health()
@@ -70,6 +74,21 @@ def apply_mood_event(payload: MoodEventRequest):
 @app.post("/character/mood/decay")
 def decay_mood():
     return runtime.decay_mood()
+
+
+@app.get("/character/attention")
+def attention_status():
+    return runtime.attention_status()
+
+
+@app.post("/character/attention/suggest")
+def suggest_attention(payload: AttentionSuggestRequest):
+    return runtime.suggest_attention(user_text=payload.user_text)
+
+
+@app.post("/character/attention/apply")
+def apply_attention(payload: AttentionSuggestRequest):
+    return runtime.apply_attention(user_text=payload.user_text)
 
 
 @app.get("/character/behavior")

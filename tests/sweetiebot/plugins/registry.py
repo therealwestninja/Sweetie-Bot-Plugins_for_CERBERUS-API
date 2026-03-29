@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional
 
-from sweetiebot.plugins.base import BasePlugin, MemoryStorePlugin, TelemetrySinkPlugin
+from sweetiebot.plugins.base import BasePlugin, MemoryStorePlugin, TelemetrySinkPlugin, AttentionStrategyPlugin
 
 
 class PluginRegistry:
@@ -28,6 +28,10 @@ class PluginRegistry:
     def get_telemetry_sink(self) -> Optional[TelemetrySinkPlugin]:
         sinks = self.get_by_type("telemetry_sink")
         return sinks[0] if sinks else None
+
+    def get_attention_strategy(self) -> Optional[AttentionStrategyPlugin]:
+        strategies = self.get_by_type("attention_strategy")
+        return strategies[0] if strategies else None
 
     def plugin_summary(self) -> Dict[str, object]:
         return {
