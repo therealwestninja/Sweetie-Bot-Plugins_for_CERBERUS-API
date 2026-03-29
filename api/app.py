@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Callable
@@ -8,8 +9,21 @@ from typing import Any, Callable
 from fastapi import FastAPI, WebSocket
 from pydantic import BaseModel, Field
 
+from sweetiebot.integration.cerberus_mapper import CerberusMapper
+from sweetiebot.integration.schemas import (
+    CharacterResponse,
+    MoodLabel,
+    SafetyMode,
+    WSEvent,
+    WSEventType,
+)
+from sweetiebot.memory.context import build_context_summary, extract_recent_commands
+from sweetiebot.observability.structured_log import get_ledger, get_logger
 from sweetiebot.persona.loader import PERSONA_LIBRARY
 from sweetiebot.runtime import SweetieBotRuntime
+from sweetiebot.safety.gate import SafetyGate
+
+_log = get_logger("api")
 
 
 class SpeakRequest(BaseModel):
@@ -209,13 +223,52 @@ def create_app(
     legacy_say_response: bool = False,
 ) -> FastAPI:
     factory = runtime_factory or SweetieBotRuntime
-    app = FastAPI()
+    app = FastAPI(title="Sweetie-Bot", version="0.1.1")
     runtime = factory()
     events = EventHub()
     bridge = IntegrationBridge(runtime=runtime, events=events)
     app.state.runtime = runtime
     app.state.event_hub = events
     app.state.integration_bridge = bridge
+
+    # ── Integration layer (resolved from plugin registry) ─────────────
+    # The registry already has AllowlistCerberusMapperPlugin and
+    # RuleBasedSafetyGatePlugin registered via register_builtins().
+    # Operators can override these by registering a higher-priority plugin
+    # of type CERBERUS_MAPPER or SAFETY_GATE before create_app() is called.
+    # Defensive getattr() allows test stubs (FakeRegistry) to work without
+    # implementing the new accessor methods.
+    _get_mapper  = getattr(runtime.plugins, "get_cerberus_mapper", lambda: None)
+    _get_gate    = getattr(runtime.plugins, "get_safety_gate",     lambda: None)
+    _get_ctx     = getattr(runtime.plugins, "get_memory_context",  lambda: None)
+    _mapper_plugin = _get_mapper()
+    _gate_plugin   = _get_gate()
+    _ctx_plugin    = _get_ctx()
+
+    # Unwrap to the underlying CerberusMapper / SafetyGate instances so
+    # the existing integration routes work with their native APIs.
+    mapper: CerberusMapper = (
+        _mapper_plugin._mapper
+        if _mapper_plugin and hasattr(_mapper_plugin, "_mapper")
+        else CerberusMapper(dry_run=False)
+    )
+    gate: SafetyGate = (
+        _gate_plugin._gate
+        if _gate_plugin and hasattr(_gate_plugin, "_gate")
+        else SafetyGate()
+    )
+    ledger = get_ledger()
+    app.state.mapper        = mapper
+    app.state.gate          = gate
+    app.state.ledger        = ledger
+    app.state.mapper_plugin = _mapper_plugin
+    app.state.gate_plugin   = _gate_plugin
+    app.state.ctx_plugin    = _ctx_plugin
+
+    from sweetiebot.api.routes.integration import create_integration_router
+    integration_router, debug_router = create_integration_router(mapper, gate)
+    app.include_router(integration_router)
+    app.include_router(debug_router)
 
     @app.get("/")
     def root() -> dict[str, Any]:
@@ -284,22 +337,66 @@ def create_app(
 
     @app.post("/character/say")
     async def say(request: SayRequest) -> dict[str, Any]:
+        t0 = time.perf_counter()
+
+        # ── Memory context feedback loop ───────────────────────────────
+        # Use the MemoryContextPlugin from the registry if available,
+        # falling back to the bare module functions.
+        recent_memories = runtime.recall(limit=12)
+        state = runtime.character_state()
+        if _ctx_plugin is not None:
+            context_summary = _ctx_plugin.build_context_summary(
+                recent_memories,
+                current_mood=state.get("mood", "calm"),
+                current_routine=state.get("active_routine"),
+            )
+            recent_commands = _ctx_plugin.extract_recent_commands(recent_memories)
+        else:
+            context_summary = build_context_summary(
+                recent_memories,
+                current_mood=state.get("mood", "calm"),
+                current_routine=state.get("active_routine"),
+            )
+            recent_commands = extract_recent_commands(recent_memories)
+
         result = runtime.handle_text(request.text)
         legacy = runtime.say(request.text).to_dict()
         response = {**legacy, **result}
         response["audio"] = {"sink": bridge.audio_sink()}
-        response["emote_id"] = result["reply"]["directive"]["emote_id"]
+        emote_id = result.get("reply", {}).get("directive", {}).get("emote_id")
+        response["emote_id"] = emote_id
         if legacy_say_response:
             response["reply_structured"] = result["reply"]
             response["reply"] = result["reply"]["text"]
+
+        # Attach context hints so the Web UI / CERBERUS can see session state
+        response["_context"] = {
+            "memory_summary": context_summary,
+            "recent_routines": recent_commands["routines"],
+            "recent_emotes": recent_commands["emotes"],
+        }
+
+        elapsed_ms = round((time.perf_counter() - t0) * 1000, 2)
+        ledger.record("character.say", {
+            "user_text": request.text,
+            "emote_id": emote_id,
+            "mood": state.get("mood"),
+            "context_summary_len": len(context_summary),
+            "recent_routines": recent_commands["routines"][:2],
+        }, elapsed_ms=elapsed_ms)
+
+        _log.decision("character.say", context={
+            "text_len": len(request.text),
+            "mood": state.get("mood"),
+            "emote": emote_id,
+            "elapsed_ms": elapsed_ms,
+        })
+
         await _publish_refresh(
             bridge,
             "dialogue.reply_ready",
             "sweetiebot_dialogue",
-            {
-                "reply": result["reply"],
-                "character": bridge.character_payload(),
-            },
+            {"reply": result["reply"], "character": bridge.character_payload()},
         )
         return response
 
@@ -492,6 +589,81 @@ def create_app(
     def llm() -> dict[str, Any]:
         return bridge.llm_payload()
 
+    @app.post("/character/respond")
+    async def character_respond(request: SayRequest) -> dict[str, Any]:
+        """
+        Primary CERBERUS-facing endpoint.
+        Returns a fully typed CharacterResponse (schema_version=1.0)
+        ready for the integration/plan pipeline.
+        """
+        t0 = time.perf_counter()
+        state = runtime.character_state()
+        dialogue = runtime.generate_dialogue(request.text)
+        emote_sel = runtime.emote_mapper.map_emote(
+            current_mood=state.get("mood", "calm"),
+            dialogue_intent=dialogue.get("intent"),
+            suggested_emote_id=dialogue.get("emote_id"),
+        )
+        behavior = runtime.suggest_behavior(request.text)
+
+        mood_str = state.get("mood", "calm")
+        try:
+            mood = MoodLabel(mood_str)
+        except ValueError:
+            mood = MoodLabel.CALM
+
+        char_response = CharacterResponse(
+            reply_text=dialogue.get("spoken_text"),
+            emote_id=emote_sel.emote_id if hasattr(emote_sel, "emote_id") else emote_sel.get("emote_id"),
+            routine_id=behavior.get("routine_id"),
+            safe_mode=state.get("safe_mode", False),
+            degraded_mode=state.get("degraded_mode", False),
+            mood=mood,
+            intent=dialogue.get("intent"),
+            source="sweetiebot",
+            metadata={
+                "dialogue_confidence": dialogue.get("confidence"),
+                "behavior_action": behavior.get("action"),
+                "behavior_priority": behavior.get("priority"),
+            },
+        )
+
+        elapsed_ms = round((time.perf_counter() - t0) * 1000, 2)
+        ledger.record("character.respond", {
+            "response_id": char_response.response_id,
+            "routine_id": char_response.routine_id,
+            "emote_id": char_response.emote_id,
+            "mood": char_response.mood.value,
+            "intent": char_response.intent,
+        }, elapsed_ms=elapsed_ms)
+
+        _log.decision("character.respond", context={
+            "response_id": char_response.response_id,
+            "routine_id": char_response.routine_id,
+            "emote_id": char_response.emote_id,
+            "elapsed_ms": elapsed_ms,
+        })
+
+        # Publish typed WS event so the Web UI updates immediately
+        ws_evt = WSEvent(
+            event_type=WSEventType.DIALOGUE_GENERATED,
+            payload={
+                "response_id": char_response.response_id,
+                "reply_text": char_response.reply_text,
+                "emote_id": char_response.emote_id,
+                "routine_id": char_response.routine_id,
+                "mood": char_response.mood.value,
+                "character": bridge.character_payload(),
+            },
+        )
+        await events.publish(EventEnvelope(
+            event_type=ws_evt.event_type.value,
+            source="sweetiebot_api",
+            payload=ws_evt.payload,
+        ))
+
+        return char_response.model_dump()
+
     @app.get("/events")
     def app_events() -> dict[str, Any]:
         return {"items": runtime.recent_trace_events(limit=20)}
@@ -501,13 +673,42 @@ def create_app(
         await ws.accept()
         queue = events.connect()
         try:
-            await ws.send_json(EventEnvelope("events.snapshot", "sweetiebot_api", bridge.snapshot_payload()).to_dict())
+            # ── Snapshot (replay-safe, backward-compatible envelope) ───
+            # Only ONE message is sent directly at connect time — the
+            # snapshot.  All subsequent events (persona changes, dialogue
+            # replies, integration events) arrive through the queue so
+            # that tests and clients always know the message ordering.
+            snap_payload = {
+                **bridge.snapshot_payload(),
+                "safety_mode": gate.safety_mode.value,
+                "gate":        gate.snapshot(),
+                "mapper":      mapper.snapshot(),
+                "recent_decisions": ledger.recent(limit=5),
+                # typed fields for new clients
+                "schema_version": "1.0",
+                "event_type": WSEventType.EVENTS_SNAPSHOT.value,
+                "replay_safe": True,
+            }
+            await ws.send_json(
+                EventEnvelope("events.snapshot", "sweetiebot_api", snap_payload).to_dict()
+            )
+
+            # ── Live event stream ──────────────────────────────────────
             while True:
                 try:
                     message = await asyncio.wait_for(queue.get(), timeout=15.0)
                 except TimeoutError:
-                    keepalive = EventEnvelope("events.keepalive", "sweetiebot_api", {"character": bridge.character_payload()}).to_dict()
-                    await ws.send_json(keepalive)
+                    await ws.send_json(
+                        EventEnvelope(
+                            "events.keepalive",
+                            "sweetiebot_api",
+                            {
+                                "character":   bridge.character_payload(),
+                                "safety_mode": gate.safety_mode.value,
+                                "event_type":  WSEventType.CHARACTER_STATE_UPDATED.value,
+                            },
+                        ).to_dict()
+                    )
                     continue
                 await ws.send_json(message)
         finally:
