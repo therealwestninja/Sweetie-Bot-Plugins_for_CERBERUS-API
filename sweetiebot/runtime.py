@@ -1,58 +1,62 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
-from typing import Any
+from dataclasses import dataclass, field
+from typing import Any, Dict, Optional
 
-from sweetiebot.dialogue.models import DialogueReply
-from sweetiebot.observability import EventLogger
+from sweetiebot.plugins.base import AudioOutputPlugin, DialogueProviderPlugin, SafetyPolicyPlugin, TTSProviderPlugin
+from sweetiebot.plugins.builtins import MockAudioOutputPlugin, MockTTSProviderPlugin
 from sweetiebot.plugins.registry import PluginRegistry
-
-_logger = EventLogger(__name__)
+from sweetiebot.plugins.types import PluginFamily
 
 
 @dataclass
 class RuntimeState:
-    persona_id: str = "sweetiebot.core"
-    current_emote_id: str = "calm_neutral"
-    current_routine_id: str | None = None
-    current_accessory_scene_id: str | None = None
-    safe_mode: bool = False
+    last_input: Optional[str] = None
+    last_reply: Optional[Dict[str, Any]] = None
+    last_speech: Optional[Dict[str, Any]] = None
+    last_playback: Optional[Dict[str, Any]] = None
     degraded_mode: bool = False
-    last_input: str | None = None
-    last_reply: dict[str, Any] | None = None
-    routines: dict[str, dict[str, Any]] = field(default_factory=dict)
 
 
 class SweetieBotRuntime:
-    def __init__(self, plugin_registry: PluginRegistry | None = None) -> None:
-        self.plugins = plugin_registry or PluginRegistry()
+    def __init__(self, registry: Optional[PluginRegistry] = None) -> None:
+        self.registry = registry or PluginRegistry()
         self.state = RuntimeState()
-        for routine in self.plugins.get_all_routines():
-            self.state.routines[routine["routine_id"]] = routine
+        self._register_builtins()
 
-    def plugin_summary(self) -> list[dict[str, Any]]:
-        return self.plugins.list_plugins()
+    def _register_builtins(self) -> None:
+        existing_tts = self.registry.get_primary(PluginFamily.TTS_PROVIDER)
+        existing_audio = self.registry.get_primary(PluginFamily.AUDIO_OUTPUT)
+        if existing_tts is None:
+            self.registry.register(MockTTSProviderPlugin())
+        if existing_audio is None:
+            self.registry.register(MockAudioOutputPlugin())
 
-    def say(self, text: str, context: dict[str, Any] | None = None) -> DialogueReply:
-        self.state.last_input = text
-        provider = self.plugins.get_primary_dialogue_provider()
-        reply = provider.generate_reply(text, context=context or {})
-        reply = self.plugins.apply_safety_policy(reply, context=context or {})
+    def plugin_summary(self) -> Dict[str, Any]:
+        return self.registry.summary()
 
-        if reply.routine_id and reply.routine_id not in self.state.routines:
+    def plugin_health_summary(self) -> Dict[str, Any]:
+        return self.registry.health_summary()
+
+    def synthesize_speech(self, text: str, voice_profile: Optional[str] = None) -> Dict[str, Any]:
+        plugin = self.registry.get_primary(PluginFamily.TTS_PROVIDER)
+        if plugin is None:
             self.state.degraded_mode = True
-            reply.routine_id = None
-            reply.fallback = True
+            raise RuntimeError("No TTS provider plugin is registered.")
+        payload = plugin.synthesize(text, voice_profile=voice_profile)
+        self.state.last_speech = payload
+        return payload
 
-        old_emote = self.state.current_emote_id
-        self.state.current_emote_id = reply.emote_id or self.state.current_emote_id
-        self.state.current_routine_id = reply.routine_id
-        self.state.last_reply = reply.model_dump()
+    def play_speech(self, speech_payload: Dict[str, Any]) -> Dict[str, Any]:
+        plugin = self.registry.get_primary(PluginFamily.AUDIO_OUTPUT)
+        if plugin is None:
+            self.state.degraded_mode = True
+            raise RuntimeError("No audio output plugin is registered.")
+        receipt = plugin.play(speech_payload)
+        self.state.last_playback = receipt
+        return receipt
 
-        if old_emote != self.state.current_emote_id:
-            _logger.runtime_state_changed("current_emote_id", old_emote, self.state.current_emote_id)
-        _logger.dialogue_generated(intent=reply.intent, emote_id=reply.emote_id, routine_id=reply.routine_id)
-        return reply
-
-    def snapshot(self) -> dict[str, Any]:
-        return asdict(self.state)
+    def speak(self, text: str, voice_profile: Optional[str] = None) -> Dict[str, Any]:
+        speech = self.synthesize_speech(text, voice_profile=voice_profile)
+        playback = self.play_speech(speech)
+        return {"speech": speech, "playback": playback}
