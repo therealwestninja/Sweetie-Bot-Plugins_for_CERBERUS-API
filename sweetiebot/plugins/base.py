@@ -2,59 +2,38 @@ from __future__ import annotations
 
 from typing import Any
 
-from sweetiebot.dialogue.contracts import DialogueReply
-from sweetiebot.plugins.manifest import PluginHealth, PluginManifest
+from sweetiebot.dialogue.models import DialogueReply
+from sweetiebot.plugins.manifest import PluginManifest
+from sweetiebot.plugins.types import PluginType
 
 
-class PluginError(RuntimeError):
-    pass
-
-
-class BasePlugin:
-    def __init__(self, manifest: PluginManifest) -> None:
-        self._manifest = manifest
-        self._config: dict[str, Any] = {}
-
-    @property
-    def plugin_id(self) -> str:
-        return self._manifest.plugin_id
-
-    @property
-    def plugin_type(self):
-        return self._manifest.plugin_type
-
+class PluginBase:
     def manifest(self) -> PluginManifest:
-        return self._manifest
+        raise NotImplementedError
 
     def configure(self, config: dict[str, Any] | None = None) -> None:
         self._config = dict(config or {})
 
-    def validate(self) -> None:
-        if not self._manifest.plugin_id:
-            raise PluginError("plugin_id is required")
-
-    def healthcheck(self) -> PluginHealth:
-        return PluginHealth(ok=True, status="ok")
-
-    def shutdown(self) -> None:
-        return None
+    def healthcheck(self) -> dict[str, Any]:
+        return {"ok": True}
 
 
-class DialogueProviderPlugin(BasePlugin):
-    def generate_reply(self, *, user_text: str, runtime_context: dict[str, Any]) -> dict[str, Any]:
+class DialogueProviderPlugin(PluginBase):
+    plugin_type = PluginType.DIALOGUE_PROVIDER
+
+    def generate_reply(self, text: str, context: dict[str, Any] | None = None) -> DialogueReply:
         raise NotImplementedError
 
 
-class RoutinePackPlugin(BasePlugin):
-    def list_routines(self) -> dict[str, dict[str, Any]]:
+class RoutinePackPlugin(PluginBase):
+    plugin_type = PluginType.ROUTINE_PACK
+
+    def get_routines(self) -> list[dict[str, Any]]:
         raise NotImplementedError
 
 
-class SafetyPolicyPlugin(BasePlugin):
-    def filter_reply(
-        self,
-        *,
-        reply: DialogueReply,
-        runtime_context: dict[str, Any],
-    ) -> DialogueReply:
-        raise NotImplementedError
+class SafetyPolicyPlugin(PluginBase):
+    plugin_type = PluginType.SAFETY_POLICY
+
+    def apply(self, reply: DialogueReply, context: dict[str, Any] | None = None) -> DialogueReply:
+        return reply
