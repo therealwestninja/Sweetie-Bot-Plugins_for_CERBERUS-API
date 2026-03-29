@@ -23,7 +23,6 @@ from sweetiebot.integration.first_slice import (
     publish_canonical_nudge_event,
     run_cerberus_stub,
 )
-from sweetiebot.api.nudge_patch import attach_nudge_and_ws
 from sweetiebot.memory.context import build_context_summary, extract_recent_commands
 from sweetiebot.observability.structured_log import get_ledger, get_logger
 from sweetiebot.persona.loader import PERSONA_LIBRARY
@@ -44,8 +43,10 @@ class SayRequest(BaseModel):
 
 class NudgeRequest(BaseModel):
     nudge_type: str = "attention"
+    intent: str | None = None
     source: str = "companion_web"
     note: str = ""
+    context: dict[str, Any] = Field(default_factory=dict)
 
 
 class PluginConfigRequest(BaseModel):
@@ -231,12 +232,6 @@ def _runtime_health(runtime: SweetieBotRuntime) -> dict[str, Any]:
 
 
 def create_app(
-attach_nudge_and_ws(
-    app,
-    get_character_state,
-    get_accessories,
-    get_memory_summary
-)
     runtime_factory: Callable[[], SweetieBotRuntime] | None = None,
     *,
     legacy_say_response: bool = False,
@@ -705,21 +700,21 @@ attach_nudge_and_ws(
             # snapshot.  All subsequent events (persona changes, dialogue
             # replies, integration events) arrive through the queue so
             # that tests and clients always know the message ordering.
-snap_payload = make_snapshot_payload(
-    bridge=bridge,
-    gate=gate,
-    mapper=mapper,
-    ledger=ledger,
-)
+            snap_payload = make_snapshot_payload(
+                bridge=bridge,
+                gate=gate,
+                mapper=mapper,
+                ledger=ledger,
+            )
 
-await ws.send_json({
-    "type": "events.snapshot",
-    "source": "sweetiebot_api",
-    "schema_version": "1.0",
-    "replay_safe": True,
-    "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
-    "payload": snap_payload,
-})
+            await ws.send_json({
+                "type": "events.snapshot",
+                "source": "sweetiebot_api",
+                "schema_version": "1.0",
+                "replay_safe": True,
+                "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+                "payload": {**snap_payload, "replay_safe": True},
+            })
 
             # ── Live event stream ──────────────────────────────────────
             while True:
@@ -758,16 +753,52 @@ await ws.send_json({
         The micro_reaction is what fires immediately.
         The suggested_action is a follow-on that passes through the safety gate.
         """
-normalized, payload = adapt_nudge_response(raw=request, bridge=bridge)
-await publish_canonical_nudge_event(events=events, payload=payload)
-asyncio.create_task(run_cerberus_stub(events=events, decision=payload["decision"]))
-return {
-    "reaction": payload["reaction"],
-    "decision": payload["decision"],
-    "nudge_type": normalized["intent"],
-}
+        if request.intent:
+            normalized, payload = adapt_nudge_response(raw=request, bridge=bridge)
+            await publish_canonical_nudge_event(events=events, payload=payload)
+            await run_cerberus_stub(events=events, decision=payload["decision"])
+            return {
+                "reaction": payload["reaction"],
+                "decision": payload["decision"],
+                "nudge_type": normalized["intent"],
+            }
 
-        # Record to ledger and telemetry
+        state = runtime.character_state()
+        result = nudge_handler.handle(
+            request.nudge_type,
+            current_mood=state.get("mood", "calm"),
+            active_routine=state.get("active_routine"),
+            safe_mode=bool(state.get("safe_mode", False)),
+            degraded_mode=bool(state.get("degraded_mode", False)),
+        )
+
+        normalized, payload = adapt_nudge_response(
+            raw={"intent": result.nudge_type.value, "source": request.source, "note": request.note, "context": request.context},
+            bridge=bridge,
+        )
+
+        payload["reaction"] = {
+            "speech": result.micro_reaction.speech,
+            "emote": result.micro_reaction.emote,
+            "attention": payload.get("reaction", {}).get("attention", "forward"),
+            "intensity": payload.get("reaction", {}).get("intensity", 0.5),
+            "motion_hint": result.micro_reaction.motion_hint,
+            "accessory": result.micro_reaction.accessory,
+            "priority": result.micro_reaction.priority,
+        }
+        payload["decision"] = {
+            **payload["decision"],
+            "autonomy_decision": result.autonomy_decision.value,
+            "suggested_action": result.suggested_action,
+            "suppressed": result.suppressed,
+            "state_category": result.state_category,
+            "nudge_count_recent": result.nudge_count_recent,
+            "notes": result.notes,
+        }
+
+        await publish_canonical_nudge_event(events=events, payload=payload)
+        await run_cerberus_stub(events=events, decision=payload["decision"])
+
         ledger.record("nudge.received", {
             "nudge_type": result.nudge_type.value,
             "decision": result.autonomy_decision.value,
@@ -781,22 +812,10 @@ return {
             payload=result.to_dict(),
         )
 
-        # Publish micro-reaction to WebSocket
-        await events.publish(EventEnvelope(
-            "character.nudge_reaction",
-            "sweetiebot_nudge",
-            {
-                "nudge_type": result.nudge_type.value,
-                "speech": result.micro_reaction.speech,
-                "emote": result.micro_reaction.emote,
-                "decision": result.autonomy_decision.value,
-                "suggested_action": result.suggested_action,
-                "suppressed": result.suppressed,
-                "character": bridge.character_payload(),
-            },
-        ))
-
-        return result.to_dict()
+        response = result.to_dict()
+        response["reaction"] = payload["reaction"]
+        response["decision"] = payload["decision"]
+        return response
 
     @app.get("/character/nudge/status")
     def nudge_status() -> dict[str, Any]:
