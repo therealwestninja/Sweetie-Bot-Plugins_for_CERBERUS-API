@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from sweetiebot.dialogue.contracts import DialogueReply
 from sweetiebot.plugins.manifest import PluginHealth, PluginManifest
 
 
@@ -46,4 +47,14 @@ class DialogueProviderPlugin(BasePlugin):
 
 class RoutinePackPlugin(BasePlugin):
     def list_routines(self) -> dict[str, dict[str, Any]]:
+        raise NotImplementedError
+
+
+class SafetyPolicyPlugin(BasePlugin):
+    def filter_reply(
+        self,
+        *,
+        reply: DialogueReply,
+        runtime_context: dict[str, Any],
+    ) -> DialogueReply:
         raise NotImplementedError

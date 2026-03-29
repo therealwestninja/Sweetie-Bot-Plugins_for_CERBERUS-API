@@ -30,6 +30,28 @@ def test_character_plugins_endpoint_lists_builtin_plugins() -> None:
     plugin_ids = {plugin["plugin_id"] for plugin in payload["plugins"]}
     assert "sweetiebot.local_dialogue" in plugin_ids
     assert "sweetiebot.demo_routines" in plugin_ids
+    assert "sweetiebot.default_safety_policy" in plugin_ids
+
+
+def test_character_plugin_config_endpoint_updates_policy_health() -> None:
+    client = TestClient(create_app())
+    response = client.post(
+        "/character/plugins/configure",
+        json={
+            "plugins": {
+                "sweetiebot.default_safety_policy": {
+                    "max_spoken_chars": 30,
+                    "blocked_terms": ["sparkle"],
+                }
+            }
+        },
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    safety = next(
+        plugin for plugin in payload["plugins"] if plugin["plugin_id"] == "sweetiebot.default_safety_policy"
+    )
+    assert safety["health"]["details"]["max_spoken_chars"] == 30
 
 
 def test_character_persona_endpoint_reconfigures_runtime() -> None:

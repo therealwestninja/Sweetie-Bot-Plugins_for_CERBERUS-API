@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from typing import Any
 
+from sweetiebot.dialogue.contracts import DialogueReply
 from sweetiebot.dialogue.manager import DialogueManager
-from sweetiebot.plugins.base import DialogueProviderPlugin, RoutinePackPlugin
-from sweetiebot.plugins.manifest import PluginManifest
+from sweetiebot.plugins.base import DialogueProviderPlugin, RoutinePackPlugin, SafetyPolicyPlugin
+from sweetiebot.plugins.manifest import PluginHealth, PluginManifest
 from sweetiebot.plugins.types import PluginType
 
 
@@ -69,3 +70,71 @@ class DemoRoutinePackPlugin(RoutinePackPlugin):
                 "steps": [{"emote": "calm_neutral"}, {"pause_ms": 600}],
             },
         }
+
+
+class DefaultSafetyPolicyPlugin(SafetyPolicyPlugin):
+    def __init__(self) -> None:
+        super().__init__(
+            PluginManifest(
+                plugin_id="sweetiebot.default_safety_policy",
+                plugin_type=PluginType.SAFETY_POLICY,
+                version="0.1.0",
+                display_name="Default Safety Policy",
+                description="Filters plugin output into a runtime-safe reply contract.",
+                capabilities=["clip_text", "block_unsupported_routines", "neutral_on_cancel"],
+                priority=5,
+                supports_degraded_mode=True,
+                config_schema={
+                    "max_spoken_chars": {"type": "integer", "default": 240},
+                    "blocked_terms": {"type": "array", "default": []},
+                },
+            )
+        )
+        self._max_spoken_chars = 240
+        self._blocked_terms: list[str] = []
+
+    def configure(self, config: dict[str, Any] | None = None) -> None:
+        super().configure(config)
+        self._max_spoken_chars = int(self._config.get("max_spoken_chars", 240))
+        blocked = self._config.get("blocked_terms", [])
+        self._blocked_terms = [str(term).lower() for term in blocked if str(term).strip()]
+
+    def healthcheck(self) -> PluginHealth:
+        return PluginHealth(
+            ok=True,
+            status="ok",
+            details={
+                "max_spoken_chars": self._max_spoken_chars,
+                "blocked_terms": list(self._blocked_terms),
+            },
+        )
+
+    def filter_reply(
+        self,
+        *,
+        reply: DialogueReply,
+        runtime_context: dict[str, Any],
+    ) -> DialogueReply:
+        normalized = reply.normalized()
+        text_lower = normalized.text.lower()
+        if any(term in text_lower for term in self._blocked_terms):
+            return DialogueReply.from_dict(
+                {
+                    "intent": "cancel",
+                    "text": "I should switch back to a safe neutral response.",
+                    "confidence": 1.0,
+                    "fallback_mode": True,
+                    "directive": {
+                        "emote_id": "calm_neutral",
+                        "routine_id": "return_to_neutral",
+                        "operator_note": "Blocked by safety policy.",
+                    },
+                }
+            ).normalized()
+
+        if len(normalized.text) > self._max_spoken_chars:
+            normalized.text = normalized.text[: self._max_spoken_chars].rstrip() + "…"
+            normalized.fallback_mode = True
+            note = normalized.directive.operator_note or ""
+            normalized.directive.operator_note = (note + " Clipped by safety policy.").strip()
+        return normalized

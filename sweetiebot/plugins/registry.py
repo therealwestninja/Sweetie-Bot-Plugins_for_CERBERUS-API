@@ -4,8 +4,20 @@ from collections import defaultdict
 from importlib.metadata import entry_points
 from typing import Any
 
-from sweetiebot.plugins.base import BasePlugin, DialogueProviderPlugin, PluginError, RoutinePackPlugin
-from sweetiebot.plugins.builtins import DemoRoutinePackPlugin, LocalDialogueProviderPlugin
+from sweetiebot.dialogue.contracts import DialogueReply
+from sweetiebot.plugins.base import (
+    BasePlugin,
+    DialogueProviderPlugin,
+    PluginError,
+    RoutinePackPlugin,
+    SafetyPolicyPlugin,
+)
+from sweetiebot.plugins.builtins import (
+    DefaultSafetyPolicyPlugin,
+    DemoRoutinePackPlugin,
+    LocalDialogueProviderPlugin,
+)
+from sweetiebot.plugins.config import load_plugin_config
 from sweetiebot.plugins.manifest import PluginManifest
 from sweetiebot.plugins.types import PluginType
 
@@ -30,6 +42,8 @@ class PluginRegistry:
         return plugin.manifest()
 
     def register_builtins(self) -> None:
+        if "sweetiebot.default_safety_policy" not in self._plugins:
+            self.register(DefaultSafetyPolicyPlugin())
         if "sweetiebot.local_dialogue" not in self._plugins:
             self.register(LocalDialogueProviderPlugin())
         if "sweetiebot.demo_routines" not in self._plugins:
@@ -43,6 +57,19 @@ class PluginRegistry:
             self.register(plugin)
             loaded.append(ep.name)
         return loaded
+
+    def configure_from_mapping(self, config: dict[str, dict[str, Any]]) -> list[str]:
+        configured: list[str] = []
+        for plugin_id, plugin_config in config.items():
+            plugin = self._plugins.get(plugin_id)
+            if plugin is None:
+                raise PluginError(f"Unknown plugin in config: {plugin_id}")
+            plugin.configure(plugin_config)
+            configured.append(plugin_id)
+        return configured
+
+    def configure_from_yaml(self, path: str) -> list[str]:
+        return self.configure_from_mapping(load_plugin_config(path))
 
     def get(self, plugin_id: str) -> BasePlugin:
         return self._plugins[plugin_id]
@@ -72,6 +99,20 @@ class PluginRegistry:
         if not isinstance(plugin, DialogueProviderPlugin):
             raise PluginError("Primary dialogue plugin does not implement DialogueProviderPlugin")
         return plugin.generate_reply(user_text=user_text, runtime_context=runtime_context)
+
+    def apply_safety_policy(
+        self,
+        *,
+        reply: DialogueReply,
+        runtime_context: dict[str, Any],
+    ) -> DialogueReply:
+        current = reply
+        for plugin_id in self.list_ids_for_type(PluginType.SAFETY_POLICY):
+            plugin = self._plugins[plugin_id]
+            if not isinstance(plugin, SafetyPolicyPlugin):
+                continue
+            current = plugin.filter_reply(reply=current, runtime_context=runtime_context)
+        return current
 
     def iter_routine_payloads(self) -> dict[str, dict[str, Any]]:
         merged: dict[str, dict[str, Any]] = {}

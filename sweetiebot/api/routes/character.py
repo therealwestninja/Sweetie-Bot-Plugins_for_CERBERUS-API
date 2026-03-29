@@ -19,6 +19,10 @@ class PersonaRequest(BaseModel):
     payload: dict[str, Any]
 
 
+class PluginConfigRequest(BaseModel):
+    plugins: dict[str, dict[str, Any]]
+
+
 @router.get("/foundation")
 def foundation() -> dict[str, Any]:
     rules = runtime.dialogue.rules
@@ -43,6 +47,12 @@ def state() -> dict[str, Any]:
 @router.get("/plugins")
 def plugins() -> dict[str, Any]:
     return {"plugins": runtime.plugin_summary()}
+
+
+@router.post("/plugins/configure")
+def configure_plugins(request: PluginConfigRequest) -> dict[str, Any]:
+    configured = runtime.configure_plugins(request.plugins)
+    return {"ok": True, "configured": configured, "plugins": runtime.plugin_summary()}
 
 
 @router.post("/persona")

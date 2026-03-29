@@ -60,6 +60,13 @@ class SweetieBotRuntime:
     def plugin_summary(self) -> list[dict[str, Any]]:
         return self.plugins.list_all()
 
+    def configure_plugins(self, payload: dict[str, dict[str, Any]]) -> list[str]:
+        configured = self.plugins.configure_from_mapping(payload)
+        return configured
+
+    def configure_plugins_from_file(self, path: str) -> list[str]:
+        return self.plugins.configure_from_yaml(path)
+
     def configure_persona(self, payload: dict[str, Any]) -> RuntimeState:
         self._persona_payload = dict(payload)
         self.dialogue.configure_persona(payload)
@@ -91,14 +98,13 @@ class SweetieBotRuntime:
         return self.state
 
     def _reply_from_plugins(self, user_text: str) -> DialogueReply:
-        payload = self.plugins.run_dialogue(
-            user_text=user_text,
-            runtime_context={
-                "persona_payload": self._persona_payload,
-                "runtime_state": self.state.to_dict(),
-            },
-        )
-        return DialogueReply.from_dict(payload).normalized()
+        runtime_context = {
+            "persona_payload": self._persona_payload,
+            "runtime_state": self.state.to_dict(),
+        }
+        payload = self.plugins.run_dialogue(user_text=user_text, runtime_context=runtime_context)
+        reply = DialogueReply.from_dict(payload).normalized()
+        return self.plugins.apply_safety_policy(reply=reply, runtime_context=runtime_context)
 
     def handle_text(self, user_text: str) -> dict[str, Any]:
         reply = self._reply_from_plugins(user_text)
