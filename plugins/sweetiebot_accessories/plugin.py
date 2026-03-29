@@ -1,5 +1,15 @@
-class SweetieBotAccessoriesPlugin:
-    name = "sweetiebot_accessories"
+from __future__ import annotations
 
-    def start(self) -> None:
-        print("accessories plugin started")
+
+class SweetieBotAccessoriesPlugin:
+    name = 'sweetiebot_accessories'
+
+    def describe(self) -> dict:
+        return {
+            'name': self.name,
+            'category': 'accessories',
+            'provides': [
+                'capability discovery',
+                'cerberus onboard audio adapter metadata',
+            ],
+        }

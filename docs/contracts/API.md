@@ -1,90 +1,50 @@
 # API Contract
 
-This document describes the current scaffold API, not the final hardware runtime.
-
-## Read endpoints
-
-### `GET /`
-Returns service metadata, current character state, and recent events.
+## Character
 
 ### `GET /character`
-Returns the active in-memory character state.
+Return the current character state.
 
 ### `GET /character/personas`
-Returns the available persona presets loaded from `sweetiebot-assets/persona/*.yaml`.
-
-### `GET /attention`
-Returns the active attention target summary.
-
-### `GET /routines`
-Returns routine ids plus expanded routine metadata loaded from YAML assets.
-
-### `GET /memory/summary`
-Returns the memory summary used by the operator console.
-
-### `GET /accessories`
-Returns currently declared accessory capabilities.
-
-### `GET /plugins`
-Returns metadata describing the reusable Sweetie-Bot plugins loaded into the scaffold runtime.
-
-### `GET /events`
-Returns recent event history from the in-memory event bus.
-
-## Command endpoints
-
-### `POST /character/say`
-Input:
-
-```json
-{ "text": "hello sweetie bot" }
-```
-
-Returns a dialogue reply, detected intent, linked emote id, and resulting character state.
-
-### `POST /character/emote`
-Input:
-
-```json
-{ "emote_id": "happy_bounce" }
-```
-
-If `emote_id` is omitted, the runtime selects an emote from the current mood.
-
-### `POST /character/routine`
-Input:
-
-```json
-{ "routine_id": "greeting_01" }
-```
-
-Returns routine metadata including title, steps, and step count.
-
-### `POST /character/focus`
-Input:
-
-```json
-{ "target_id": "nearest_person", "confidence": 1.0, "mode": "person" }
-```
+Return available persona presets.
 
 ### `POST /character/persona`
-Input:
+Switch the active persona.
+
+### `GET /character/llm`
+Return the active dialogue provider, configured model, and CERBERUS audio sink status.
+
+### `POST /character/say`
+Accept a text utterance, generate an in-character reply, and attempt audio dispatch.
+
+Example response:
 
 ```json
-{ "persona_id": "sweetiebot_convention" }
+{
+  "heard": "hello",
+  "reply": "Hi everypony! Show mode is live and I am ready to sparkle.",
+  "intent": "greet",
+  "emote_id": "curious_headtilt",
+  "provider": "openai",
+  "model": "gpt-5.4",
+  "audio": {
+    "ok": true,
+    "sink": "cerberus_go2_onboard_audio",
+    "detail": "speech dispatched",
+    "status_code": 200
+  }
+}
 ```
 
-### `POST /character/cancel`
-Stops speaking and clears the active routine.
+## Plugins
 
-## Event stream
+### `GET /plugins`
+Return plugin inventory and declared capabilities.
+
+## Events
+
+### `GET /events`
+Return recent event history.
 
 ### `WS /ws/events`
-Sends:
-- an initial `events.snapshot`
-- incremental events for persona, dialogue, attention, routines, and emotes
-- keepalive messages while idle
-
-## Contract status
-
-Prototype, but live and tested.
+Return a live stream of snapshots and state-change events.

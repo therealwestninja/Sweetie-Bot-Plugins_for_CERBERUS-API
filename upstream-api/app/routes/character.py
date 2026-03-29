@@ -25,9 +25,32 @@ class FocusRequest(BaseModel):
     mode: str = Field(default="person")
 
 
+class PersonaRequest(BaseModel):
+    persona_id: str = Field(min_length=1)
+
+
 @router.get("")
 def get_character(runtime: RuntimeState = Depends(get_runtime)) -> dict:
     return runtime.get_character()
+
+
+@router.get("/personas")
+def get_personas(runtime: RuntimeState = Depends(get_runtime)) -> dict:
+    return {"items": runtime.list_personas()}
+
+
+@router.post("/persona")
+def set_persona(payload: PersonaRequest, runtime: RuntimeState = Depends(get_runtime)) -> dict:
+    try:
+        return runtime.apply_persona(payload.persona_id)
+    except KeyError as exc:
+        detail = f"Unknown persona: {payload.persona_id}"
+        raise HTTPException(status_code=404, detail=detail) from exc
+
+
+@router.get("/llm")
+def get_llm_status(runtime: RuntimeState = Depends(get_runtime)) -> dict:
+    return runtime.get_llm_status()
 
 
 @router.post("/say")

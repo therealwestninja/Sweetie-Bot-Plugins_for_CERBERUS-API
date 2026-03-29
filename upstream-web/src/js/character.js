@@ -9,6 +9,10 @@ export async function loadPersonaList() {
   return payload.items;
 }
 
+export async function loadLlmStatus() {
+  return apiGet("/character/llm");
+}
+
 export async function switchPersona(personaId) {
   return apiPost("/character/persona", { persona_id: personaId });
 }

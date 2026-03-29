@@ -33,6 +33,7 @@ async def websocket_events(websocket: WebSocket) -> None:
                     "memory": runtime.get_memory_summary(),
                     "accessories": runtime.get_accessories(),
                     "plugins": runtime.get_plugins(),
+                    "llm": runtime.get_llm_status(),
                 },
             }
         )

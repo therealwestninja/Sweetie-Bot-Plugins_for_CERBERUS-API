@@ -1,25 +1,24 @@
 # Changelog
 
+## 0.0.7 - 2026-03-29
+- added configurable dialogue provider adapters for local, OpenAI, and Anthropic backends
+- added `GET /character/llm`
+- added CERBERUS audio adapter for forwarding spoken replies to onboard Go2 audio endpoints
+- expanded `sweetiebot_dialogue` to produce provider and audio metadata
+- added `sweetiebot_accessories` plugin description and inventory
+- updated websocket snapshot payloads with LLM and audio status
+- refreshed README and core docs to read like a real GitHub scaffold
+
 ## 0.0.6 - 2026-03-29
-- moved more behavior into reusable CERBERUS-style plugins
-- added `GET /plugins` to expose active plugin metadata
-- upgraded routine loading to read real YAML step data from assets
-- upgraded emote loading to read JSON asset metadata and accessory hints
-- improved the operator console with plugin visibility and routine step counts
-- refreshed the README to read like a real GitHub repository front page
-- updated API and event contract docs for the current scaffold
+- moved more character logic into reusable CERBERUS-style plugins
+- added `GET /plugins`
+- upgraded routines to load real YAML step data
+- upgraded emotes to load JSON asset metadata and accessory hints
+- improved dialogue behavior for greetings, music, and praise
+- updated the web console to show plugin inventory and richer routine buttons
 
 ## 0.0.5 - 2026-03-29
-- added persona preset switching end-to-end across API, runtime, websocket events, and the web controller
+- added persona preset switching end to end
 
 ## 0.0.4 - 2026-03-29
-- added live event streaming with runtime snapshots and websocket updates
-
-## 0.0.3 - 2026-03-29
-- added the first working API and browser controller scaffold
-
-## 0.0.2 - 2026-03-29
-- made the scaffold GitHub-ready with issue templates, workflows, and board seed files
-
-## 0.0.1 - 2026-03-29
-- initial aspirational monorepo scaffold
+- added live event streaming with `GET /events` and `WS /ws/events`

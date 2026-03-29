@@ -1,53 +1,54 @@
 # Architecture
 
-## Overview
+## Intent
 
-The current scaffold has three layers:
+Sweetie Bot is built as a thin character layer over a CERBERUS-style runtime. The API layer owns authoritative robot state, routines, plugin hosting, event streaming, and hardware adapters. The web layer is an operator console and authoring surface.
 
-1. **API scaffold** in `upstream_api/`
-2. **Reusable character logic** in `sweetiebot/` and `plugins/`
-3. **Operator console** in `upstream-web/src/`
+## Runtime split
 
-The API owns state, transport, and the event bus.
-The plugins own character decisions.
-The assets repo folder supplies persona, emote, and routine data.
+### `upstream_api/`
+- FastAPI scaffold
+- runtime state host
+- plugin inventory
+- event bus
+- LLM provider selection
+- CERBERUS audio adapter
 
-## Runtime flow
+### `plugins/`
+Reusable modules that can be transplanted into other CERBERUS forks:
+- `sweetiebot_persona`
+- `sweetiebot_dialogue`
+- `sweetiebot_attention`
+- `sweetiebot_emotes`
+- `sweetiebot_routines`
+- `sweetiebot_accessories`
 
-```text
-HTTP / WebSocket request
-        ↓
-FastAPI route
-        ↓
-RuntimeState
-        ↓
-Sweetie-Bot plugin
-        ↓
-asset-backed helpers in sweetiebot/
-        ↓
-event bus + response payload
-```
+### `sweetiebot/`
+Shared, repo-local runtime code:
+- dialogue manager and provider adapters
+- accessory audio adapter
+- persona loading and state logic
+- emote mapping
+- routine registry
 
-## Why the plugin split matters
+### `upstream-web/`
+Browser-side operator console scaffold with:
+- persona switching
+- dialogue testing
+- routine triggering
+- plugin inventory
+- live event stream
+- LLM and audio status panel
 
-The interesting parts of Sweetie-Bot are now easier to reuse:
+## Dialogue path
 
-- persona selection
-- dialogue generation
-- attention targeting
-- emote lookup
-- routine metadata
+1. operator or user text enters `/character/say`
+2. `sweetiebot_dialogue` chooses the active provider
+3. provider generates a short in-character reply
+4. reply metadata is returned to the caller
+5. the reply is optionally forwarded to the CERBERUS audio endpoint for onboard playback
+6. `dialogue.reply_ready` is emitted to the live event stream
 
-That means a future CERBERUS fork can absorb these pieces without taking the entire prototype runtime along for the ride.
+## Why plugin-heavy?
 
-## Current limitations
-
-- no real hardware bridge
-- no persistence beyond process memory
-- no auth on the scaffold routes
-- no actual routine execution engine yet, only routine metadata and selection
-- no speech synthesis or speech recognition yet
-
-## Next architectural step
-
-Add a tiny routine planner that can turn routine steps into an ordered list of timed actions for the operator console and, later, the robot runtime.
+This repo is trying to stay useful outside Sweetie Bot. Persona selection, LLM-backed short-form dialogue, routine metadata, and CERBERUS audio dispatch are all generic enough to be useful to other character robot projects.

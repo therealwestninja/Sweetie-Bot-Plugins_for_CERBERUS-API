@@ -5,20 +5,28 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
+from plugins.sweetiebot_accessories import SweetieBotAccessoriesPlugin
 from plugins.sweetiebot_attention import SweetieBotAttentionPlugin
 from plugins.sweetiebot_dialogue import SweetieBotDialoguePlugin
 from plugins.sweetiebot_emotes import SweetieBotEmotesPlugin
 from plugins.sweetiebot_persona import SweetieBotPersonaPlugin
 from plugins.sweetiebot_routines import SweetieBotRoutinesPlugin
+from sweetiebot.accessories.audio_output import CerberusAudioClient
 from sweetiebot.accessories.manager import AccessoryManager
 from sweetiebot.character.schemas import CharacterState, MoodState
 from sweetiebot.dialogue.manager import DialogueManager
+from sweetiebot.dialogue.providers import (
+    AnthropicMessagesProvider,
+    LocalDialogueProvider,
+    OpenAIResponsesProvider,
+)
 from sweetiebot.emotes.mapper import EmoteMapper
 from sweetiebot.memory.store import MemoryStore
 from sweetiebot.perception.attention_manager import AttentionManager
 from sweetiebot.persona.loader import load_persona
 from sweetiebot.persona.state_machine import PersonaStateMachine
 from sweetiebot.routines.registry import RoutineRegistry
+from upstream_api.app.config import settings
 from upstream_api.app.services.events import Event, EventBus
 
 
@@ -35,6 +43,13 @@ class RuntimeState:
         self.attention = AttentionManager()
         self.memory = MemoryStore()
         self.accessories = AccessoryManager()
+        self.audio_client = CerberusAudioClient(
+            base_url=settings.cerberus_audio_base_url,
+            speak_path=settings.cerberus_audio_path,
+            bearer_token=settings.cerberus_audio_token,
+            default_voice=settings.cerberus_audio_voice,
+            timeout_s=settings.request_timeout_s,
+        )
         self.routines = RoutineRegistry()
         self.plugins = {
             "sweetiebot_persona": SweetieBotPersonaPlugin(),
@@ -42,6 +57,7 @@ class RuntimeState:
             "sweetiebot_attention": SweetieBotAttentionPlugin(),
             "sweetiebot_emotes": SweetieBotEmotesPlugin(),
             "sweetiebot_routines": SweetieBotRoutinesPlugin(),
+            "sweetiebot_accessories": SweetieBotAccessoriesPlugin(),
         }
         self.persona_catalog = {
             "sweetiebot_default": load_persona(assets / "persona" / "default.yaml"),
@@ -58,6 +74,24 @@ class RuntimeState:
         self._bootstrap_routines(assets)
         self.apply_persona("sweetiebot_default", emit=False)
         self._emit_runtime_snapshot(reason="boot")
+
+    def _build_dialogue_provider(self):
+        provider = settings.llm_provider.lower().strip()
+        if provider == "openai":
+            return OpenAIResponsesProvider(
+                api_key=settings.openai_api_key,
+                model=settings.openai_model,
+                base_url=settings.openai_base_url,
+                timeout_s=settings.request_timeout_s,
+            )
+        if provider == "anthropic":
+            return AnthropicMessagesProvider(
+                api_key=settings.anthropic_api_key,
+                model=settings.anthropic_model,
+                base_url=settings.anthropic_base_url,
+                timeout_s=settings.request_timeout_s,
+            )
+        return LocalDialogueProvider(dialogue_manager=self.dialogue)
 
     def _bootstrap_routines(self, assets: Path) -> None:
         routines_dir = assets / "routines"
@@ -82,6 +116,7 @@ class RuntimeState:
                 "accessories": self.get_accessories(),
                 "personas": self.list_personas(),
                 "plugins": self.get_plugins(),
+                "llm": self.get_llm_status(),
             },
         )
 
@@ -96,6 +131,10 @@ class RuntimeState:
 
     def get_plugins(self) -> dict[str, Any]:
         return {"items": [plugin.describe() for plugin in self.plugins.values()]}
+
+    def get_llm_status(self) -> dict[str, Any]:
+        provider = self._build_dialogue_provider()
+        return {**provider.describe(), "audio": self.audio_client.describe()}
 
     def apply_persona(self, persona_id: str, emit: bool = True) -> dict[str, Any]:
         payload = self.plugins["sweetiebot_persona"].select_persona(
@@ -138,6 +177,8 @@ class RuntimeState:
             dialogue_manager=self.dialogue,
             persona_machine=self.persona_machine,
             character=self.character,
+            llm_provider=self._build_dialogue_provider(),
+            audio_client=self.audio_client,
         )
         self._emit("dialogue.reply_ready", "sweetiebot_dialogue", payload)
         return {**payload, "mood": self.character.mood.value}
@@ -199,7 +240,9 @@ class RuntimeState:
         return self.memory.summary()
 
     def get_accessories(self) -> dict[str, Any]:
-        return self.accessories.capabilities()
+        payload = self.accessories.capabilities()
+        payload["audio"] = self.audio_client.describe()
+        return payload
 
     def recent_events(self) -> list[dict[str, Any]]:
         return [asdict(event) for event in self.event_bus.all()[-20:]]

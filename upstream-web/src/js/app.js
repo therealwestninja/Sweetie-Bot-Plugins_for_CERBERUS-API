@@ -1,5 +1,5 @@
 import { getApiBaseUrl, setApiBaseUrl } from "./api.js";
-import { cancelCharacterAction, loadCharacterState, triggerEmote } from "./character.js";
+import { cancelCharacterAction, loadCharacterState, loadLlmStatus, triggerEmote } from "./character.js";
 import { loadAccessories } from "./accessories.js";
 import { submitDialogue } from "./dialogue.js";
 import { connectEventStream } from "./events.js";
@@ -48,12 +48,13 @@ async function renderPersonaPresets(activePersonaId = null) {
 }
 
 async function refreshDashboard() {
-  const [character, accessories, memory, routines, plugins] = await Promise.all([
+  const [character, accessories, memory, routines, plugins, llm] = await Promise.all([
     loadCharacterState(),
     loadAccessories(),
     loadMemorySummary(),
     loadRoutines(),
-    loadPlugins()
+    loadPlugins(),
+    loadLlmStatus()
   ]);
 
   $("#status-line").textContent = `${character.persona_id} · mood=${character.mood} · speaking=${character.is_speaking}`;
@@ -61,6 +62,7 @@ async function refreshDashboard() {
   renderJson("#accessory-state", accessories);
   renderJson("#memory-state", summarizeMemory(memory));
   renderJson("#plugin-state", plugins);
+  renderJson("#llm-state", llm);
   await renderPersonaPresets(character.persona_id);
 
   const routineList = $("#routine-list");
@@ -87,6 +89,7 @@ function handleEvent(event) {
     renderJson("#accessory-state", snapshot.accessories);
     renderJson("#memory-state", summarizeMemory(snapshot.memory));
     renderJson("#plugin-state", snapshot.plugins);
+    renderJson("#llm-state", snapshot.llm);
     $("#status-line").textContent = `${snapshot.character.persona_id} · mood=${snapshot.character.mood} · speaking=${snapshot.character.is_speaking} · stream=live`;
     void renderPersonaPresets(snapshot.character.persona_id);
     return;
