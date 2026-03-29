@@ -1,14 +1,32 @@
 from __future__ import annotations
 
+from typing import Any, Callable, Optional
+
 from fastapi import FastAPI
+from pydantic import BaseModel
 
-from sweetiebot.api.routes.character import router as character_router
+
+class SpeakRequest(BaseModel):
+    text: str
+    voice: Optional[str] = None
 
 
-def create_app() -> FastAPI:
-    app = FastAPI(title="Sweetie Bot API", version="0.1.0")
-    app.include_router(character_router, prefix="/character", tags=["character"])
+def create_app(runtime_factory: Callable[[], Any]) -> FastAPI:
+    app = FastAPI(title="Sweetie Bot API", version="0.1.2")
+
+    @app.get("/character/plugins")
+    def get_plugin_summary() -> Any:
+        runtime = runtime_factory()
+        return runtime.plugin_summary()
+
+    @app.get("/character/health")
+    def get_health() -> Any:
+        runtime = runtime_factory()
+        return runtime.health()
+
+    @app.post("/character/speak-test")
+    def speak_test(request: SpeakRequest) -> Any:
+        runtime = runtime_factory()
+        return runtime.speak(text=request.text, voice=request.voice)
+
     return app
-
-
-app = create_app()

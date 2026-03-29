@@ -1,62 +1,73 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, asdict
 from typing import Any, Dict, Optional
-
-from sweetiebot.plugins.base import AudioOutputPlugin, DialogueProviderPlugin, SafetyPolicyPlugin, TTSProviderPlugin
-from sweetiebot.plugins.builtins import MockAudioOutputPlugin, MockTTSProviderPlugin
-from sweetiebot.plugins.registry import PluginRegistry
-from sweetiebot.plugins.types import PluginFamily
 
 
 @dataclass
 class RuntimeState:
+    persona_id: str = "sweetie_bot"
+    emote_id: str = "calm_neutral"
+    routine_id: Optional[str] = None
+    accessory_scene_id: Optional[str] = None
+    safe_mode: bool = False
+    degraded_mode: bool = False
     last_input: Optional[str] = None
     last_reply: Optional[Dict[str, Any]] = None
     last_speech: Optional[Dict[str, Any]] = None
-    last_playback: Optional[Dict[str, Any]] = None
-    degraded_mode: bool = False
 
 
 class SweetieBotRuntime:
-    def __init__(self, registry: Optional[PluginRegistry] = None) -> None:
-        self.registry = registry or PluginRegistry()
-        self.state = RuntimeState()
-        self._register_builtins()
+    """
+    Minimal runtime patch showing health and safe speech hooks.
+    Assumes a plugin registry object with helper methods exists in the main repo.
+    """
 
-    def _register_builtins(self) -> None:
-        existing_tts = self.registry.get_primary(PluginFamily.TTS_PROVIDER)
-        existing_audio = self.registry.get_primary(PluginFamily.AUDIO_OUTPUT)
-        if existing_tts is None:
-            self.registry.register(MockTTSProviderPlugin())
-        if existing_audio is None:
-            self.registry.register(MockAudioOutputPlugin())
+    def __init__(self, plugin_registry: Any, dialogue_manager: Any = None) -> None:
+        self.plugin_registry = plugin_registry
+        self.dialogue_manager = dialogue_manager
+        self.state = RuntimeState()
+
+    def get_state(self) -> Dict[str, Any]:
+        return asdict(self.state)
 
     def plugin_summary(self) -> Dict[str, Any]:
-        return self.registry.summary()
+        if hasattr(self.plugin_registry, "health_summary"):
+            return self.plugin_registry.health_summary()
+        if hasattr(self.plugin_registry, "plugins"):
+            from sweetiebot.plugins.health import summarize_plugin_health
+            return summarize_plugin_health(self.plugin_registry.plugins())
+        return {"ok": True, "counts": {"total": 0, "healthy": 0, "degraded": 0, "errors": 0}, "plugins": []}
 
-    def plugin_health_summary(self) -> Dict[str, Any]:
-        return self.registry.health_summary()
+    def speak(self, text: str, voice: Optional[str] = None) -> Dict[str, Any]:
+        tts_plugin = None
+        audio_plugin = None
+        if hasattr(self.plugin_registry, "get_best_plugin"):
+            tts_plugin = self.plugin_registry.get_best_plugin("tts_provider")
+            audio_plugin = self.plugin_registry.get_best_plugin("audio_output")
 
-    def synthesize_speech(self, text: str, voice_profile: Optional[str] = None) -> Dict[str, Any]:
-        plugin = self.registry.get_primary(PluginFamily.TTS_PROVIDER)
-        if plugin is None:
-            self.state.degraded_mode = True
-            raise RuntimeError("No TTS provider plugin is registered.")
-        payload = plugin.synthesize(text, voice_profile=voice_profile)
-        self.state.last_speech = payload
-        return payload
+        speech_result: Dict[str, Any] = {
+            "text": text,
+            "voice": voice or "default",
+            "synthesized": False,
+            "played": False,
+            "audio_ref": None,
+        }
 
-    def play_speech(self, speech_payload: Dict[str, Any]) -> Dict[str, Any]:
-        plugin = self.registry.get_primary(PluginFamily.AUDIO_OUTPUT)
-        if plugin is None:
-            self.state.degraded_mode = True
-            raise RuntimeError("No audio output plugin is registered.")
-        receipt = plugin.play(speech_payload)
-        self.state.last_playback = receipt
-        return receipt
+        if tts_plugin is not None:
+            speech_result.update(tts_plugin.synthesize(text=text, voice=voice))
+        if audio_plugin is not None and speech_result.get("audio_ref"):
+            play_result = audio_plugin.play(audio_ref=speech_result["audio_ref"])
+            speech_result["played"] = bool(play_result.get("played", False))
+            speech_result["playback"] = play_result
 
-    def speak(self, text: str, voice_profile: Optional[str] = None) -> Dict[str, Any]:
-        speech = self.synthesize_speech(text, voice_profile=voice_profile)
-        playback = self.play_speech(speech)
-        return {"speech": speech, "playback": playback}
+        self.state.last_speech = speech_result
+        return speech_result
+
+    def health(self) -> Dict[str, Any]:
+        return {
+            "runtime_ok": not self.state.degraded_mode,
+            "safe_mode": self.state.safe_mode,
+            "degraded_mode": self.state.degraded_mode,
+            "plugins": self.plugin_summary(),
+        }

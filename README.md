@@ -1,34 +1,30 @@
-# Sweetie Bot Patch Bundle v6
+# Sweetie Bot Patch Bundle v7
 
-This patch continues the **easy / low-friction** work first.
+This patch bundle continues the easier production-readiness tasks by adding:
 
-## Added in this bundle
+- API endpoints for plugin health/status inspection
+- API endpoint for mock speech testing
+- CLI commands for plugin/system health inspection
+- Example YAML config for TTS/audio plugins
+- Documentation for speech plugin config shape
 
-### Plugin health + richer status reporting
+## Included files
+
+- `sweetiebot/api/app.py`
+- `sweetiebot/cli/main.py`
+- `sweetiebot/runtime.py`
 - `sweetiebot/plugins/health.py`
-- richer plugin health snapshots
-- registry-wide status summary helpers
-- standardized runtime-friendly plugin diagnostics
+- `docs/PLUGIN_CONFIG_EXAMPLES.md`
+- `config/examples/plugins.speech.example.yaml`
+- `tests/test_api_health_and_speech.py`
+- `tests/test_cli_health.py`
 
-### Mock speech interfaces
-- `tts_provider` plugin family
-- `audio_output` plugin family
-- built-in mock TTS provider
-- built-in mock audio output plugin
+## Notes
 
-### Runtime integration
-- runtime now exposes:
-  - speech-capable plugin summary
-  - mock speech synthesis pathway
-  - mock audio playback pathway
-- intended for safe local testing before CERBERUS integration
+This is a patch-style bundle meant to be extracted into the repo root and merged with the existing project.
 
-### Tests
-- plugin registry health summary
-- mock TTS synthesis result shape
-- mock audio output playback result shape
-
-## Merge notes
-
-These files are written as a patch-style drop-in bundle for the repo layout that has been developed so far.
-Extract into the repo root and review/merge as needed.
+The changes assume the prior plugin work already exists:
+- plugin registry
+- plugin health helpers
+- mock speech plugins
+- runtime plugin bootstrapping
