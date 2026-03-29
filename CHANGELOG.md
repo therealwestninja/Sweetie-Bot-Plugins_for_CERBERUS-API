@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.0.3 - 2026-03-29
+- added a working in-memory FastAPI scaffold for the first API slice
+- added runtime state wiring for character, routines, accessories, memory, and attention
+- added command endpoints for say, emote, routine, focus, and cancel
+- added a minimal browser operator console scaffold with fetch-based API integration
+- added API scaffold tests for root, dialogue, and routine flow
+
+# Changelog
+
 ## 0.0.2 - 2026-03-29
 - added GitHub-ready hygiene files and contributor docs
 - added issue forms, PR template, CODEOWNERS, SECURITY, and SUPPORT docs

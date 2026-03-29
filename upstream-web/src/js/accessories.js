@@ -1,5 +1,5 @@
-export const accessoryDefaults = {
-  face_display: false,
-  tail_servo: false,
-  speaker_stack: true
-};
+import { apiGet } from "./api.js";
+
+export async function loadAccessories() {
+  return apiGet("/accessories");
+}

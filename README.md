@@ -11,8 +11,8 @@ It is designed to:
 - stay merge-friendly and documentation-heavy from day one
 
 ## Status
-**Version:** 0.0.1  
-**State:** aspirational scaffold / architecture seed / non-production
+**Version:** 0.0.3  
+**State:** early working scaffold / API + controller slice / non-production
 
 This repo intentionally contains:
 - structure
@@ -25,6 +25,8 @@ This repo intentionally contains:
 - stubs for future implementation
 
 It intentionally does **not** claim to be a working robot runtime.
+
+It now includes a **tiny working in-memory API scaffold** and a **browser-side operator console scaffold** for the first API/controller slice.
 
 ## Monorepo layout
 
@@ -66,6 +68,29 @@ cd sweetiebot-fork
 python scripts/bootstrap.py
 python scripts/tree.py
 ```
+
+## First coded slice
+
+Run the scaffold API:
+
+```bash
+python -m upstream_api.app.main
+```
+
+Then open `upstream-web/src/index.html` in a local static server, or serve it with your preferred frontend dev tool, and point it at `http://127.0.0.1:8080`.
+
+Implemented in this slice:
+- `GET /`
+- `GET /character`
+- `GET /attention`
+- `GET /routines`
+- `GET /memory/summary`
+- `GET /accessories`
+- `POST /character/say`
+- `POST /character/emote`
+- `POST /character/routine`
+- `POST /character/focus`
+- `POST /character/cancel`
 
 ## Important note
 
