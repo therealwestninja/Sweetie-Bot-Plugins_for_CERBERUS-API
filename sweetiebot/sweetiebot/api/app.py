@@ -46,6 +46,16 @@ class AttentionSuggestRequest(BaseModel):
     user_text: Optional[str] = None
 
 
+class DialogueRequest(BaseModel):
+    user_text: Optional[str] = None
+
+
+class EmoteMapRequest(BaseModel):
+    dialogue_intent: Optional[str] = None
+    suggested_emote_id: Optional[str] = None
+    behavior_action: Optional[str] = None
+
+
 @app.get("/character/runtime-health")
 def runtime_health():
     return runtime.runtime_health()
@@ -61,6 +71,30 @@ def update_character_state(payload: CharacterStateUpdateRequest):
     return runtime.update_character_state(**payload.model_dump())
 
 
+@app.get("/character/dialogue")
+def dialogue_status():
+    return runtime.dialogue_status()
+
+
+@app.post("/character/dialogue/generate")
+def generate_dialogue(payload: DialogueRequest):
+    return runtime.generate_dialogue(payload.user_text)
+
+
+@app.get("/character/emotes")
+def emote_status():
+    return runtime.emote_status()
+
+
+@app.post("/character/emotes/map")
+def map_emote(payload: EmoteMapRequest):
+    return runtime.map_emote(
+        dialogue_intent=payload.dialogue_intent,
+        suggested_emote_id=payload.suggested_emote_id,
+        behavior_action=payload.behavior_action,
+    )
+
+
 @app.get("/character/mood")
 def mood_status():
     return runtime.mood_status()
@@ -74,6 +108,21 @@ def apply_mood_event(payload: MoodEventRequest):
 @app.post("/character/mood/decay")
 def decay_mood():
     return runtime.decay_mood()
+
+
+@app.get("/character/perception")
+def perception_status():
+    return runtime.perception_status()
+
+
+@app.post("/character/perception/poll")
+def poll_perception():
+    return {"items": runtime.poll_perception()}
+
+
+@app.post("/character/perception/apply")
+def apply_perception():
+    return runtime.apply_perception()
 
 
 @app.get("/character/attention")

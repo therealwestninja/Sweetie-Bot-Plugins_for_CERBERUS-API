@@ -3,7 +3,10 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from sweetiebot.attention.models import AttentionSuggestion
+from sweetiebot.dialogue.models import DialogueResponse
+from sweetiebot.emotes.models import EmoteSelection
 from sweetiebot.memory.models import MemoryQuery, MemoryRecord
+from sweetiebot.perception.models import Observation
 from sweetiebot.telemetry.models import TraceEvent
 
 
@@ -65,4 +68,43 @@ class AttentionStrategyPlugin(BasePlugin):
         safe_mode: bool = False,
         degraded_mode: bool = False,
     ) -> AttentionSuggestion:
+        raise NotImplementedError
+
+
+class PerceptionSourcePlugin(BasePlugin):
+    plugin_type = "perception_source"
+
+    def poll_observations(self) -> List[Observation]:
+        raise NotImplementedError
+
+
+class DialogueProviderPlugin(BasePlugin):
+    plugin_type = "dialogue_provider"
+
+    def generate_reply(
+        self,
+        *,
+        user_text: Optional[str],
+        current_mood: str,
+        current_focus: Optional[str],
+        active_routine: Optional[str],
+        safe_mode: bool = False,
+        degraded_mode: bool = False,
+    ) -> DialogueResponse:
+        raise NotImplementedError
+
+
+class EmoteMapperPlugin(BasePlugin):
+    plugin_type = "emote_mapper"
+
+    def map_emote(
+        self,
+        *,
+        current_mood: str,
+        dialogue_intent: Optional[str] = None,
+        suggested_emote_id: Optional[str] = None,
+        behavior_action: Optional[str] = None,
+        safe_mode: bool = False,
+        degraded_mode: bool = False,
+    ) -> EmoteSelection:
         raise NotImplementedError

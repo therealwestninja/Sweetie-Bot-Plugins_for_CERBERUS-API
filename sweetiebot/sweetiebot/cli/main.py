@@ -12,11 +12,24 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("runtime-health")
     sub.add_parser("state-show")
+    sub.add_parser("dialogue-show")
+    sub.add_parser("emote-show")
     sub.add_parser("mood-show")
+    sub.add_parser("perception-show")
     sub.add_parser("attention-show")
     sub.add_parser("behavior-show")
     sub.add_parser("routine-arbitration-show")
     sub.add_parser("telemetry-show")
+    sub.add_parser("perception-poll")
+    sub.add_parser("perception-apply")
+
+    dialogue_generate = sub.add_parser("dialogue-generate")
+    dialogue_generate.add_argument("--text")
+
+    emote_map = sub.add_parser("emote-map")
+    emote_map.add_argument("--dialogue-intent")
+    emote_map.add_argument("--suggested-emote-id")
+    emote_map.add_argument("--behavior-action")
 
     telemetry_events = sub.add_parser("telemetry-events")
     telemetry_events.add_argument("--limit", type=int, default=25)
@@ -87,8 +100,40 @@ def main(argv=None):
         print(json.dumps(runtime.character_state(), indent=2))
         return 0
 
+    if args.command == "dialogue-show":
+        print(json.dumps(runtime.dialogue_status(), indent=2))
+        return 0
+
+    if args.command == "dialogue-generate":
+        print(json.dumps(runtime.generate_dialogue(user_text=args.text), indent=2))
+        return 0
+
+    if args.command == "emote-show":
+        print(json.dumps(runtime.emote_status(), indent=2))
+        return 0
+
+    if args.command == "emote-map":
+        print(json.dumps(runtime.map_emote(
+            dialogue_intent=args.dialogue_intent,
+            suggested_emote_id=args.suggested_emote_id,
+            behavior_action=args.behavior_action,
+        ), indent=2))
+        return 0
+
     if args.command == "mood-show":
         print(json.dumps(runtime.mood_status(), indent=2))
+        return 0
+
+    if args.command == "perception-show":
+        print(json.dumps(runtime.perception_status(), indent=2))
+        return 0
+
+    if args.command == "perception-poll":
+        print(json.dumps({"items": runtime.poll_perception()}, indent=2))
+        return 0
+
+    if args.command == "perception-apply":
+        print(json.dumps(runtime.apply_perception(), indent=2))
         return 0
 
     if args.command == "attention-show":

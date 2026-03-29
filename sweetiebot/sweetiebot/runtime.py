@@ -4,10 +4,15 @@ from typing import Dict, Any, List, Optional
 
 from sweetiebot.attention.models import AttentionSuggestion
 from sweetiebot.behavior.director import BehaviorDirector
+from sweetiebot.dialogue.models import DialogueResponse
+from sweetiebot.emotes.models import EmoteSelection
 from sweetiebot.memory.models import MemoryQuery, MemoryRecord
 from sweetiebot.mood.engine import MoodEngine
 from sweetiebot.plugins.builtins.attention import RuleBasedAttentionStrategyPlugin
+from sweetiebot.plugins.builtins.dialogue import RuleBasedDialogueProviderPlugin
+from sweetiebot.plugins.builtins.emotes import RuleBasedEmoteMapperPlugin
 from sweetiebot.plugins.builtins.memory import InMemoryStorePlugin
+from sweetiebot.plugins.builtins.perception import MockPerceptionSourcePlugin
 from sweetiebot.plugins.builtins.telemetry import InMemoryTelemetrySinkPlugin
 from sweetiebot.plugins.registry import PluginRegistry
 from sweetiebot.routines.arbitrator import RoutineArbitrator
@@ -22,11 +27,17 @@ class SweetieBotRuntime:
         self.registry.register(InMemoryStorePlugin())
         self.registry.register(InMemoryTelemetrySinkPlugin())
         self.registry.register(RuleBasedAttentionStrategyPlugin())
+        self.registry.register(MockPerceptionSourcePlugin())
+        self.registry.register(RuleBasedDialogueProviderPlugin())
+        self.registry.register(RuleBasedEmoteMapperPlugin())
         self.state: Dict[str, Any] = {
             "safe_mode": False,
             "degraded_mode": False,
             "last_input": None,
             "last_reply": None,
+            "last_observations": [],
+            "last_dialogue": None,
+            "last_emote": None,
         }
         self.state_manager = CharacterStateManager(memory_store=self.registry.get_memory_store())
         self.mood_engine = MoodEngine(default_mood=self.state_manager.state.mood)
@@ -95,6 +106,165 @@ class SweetieBotRuntime:
             payload={"text": text, "kind": kind, "scope": scope, "limit": limit, "results": len(records)},
         )
         return [r.to_dict() for r in records]
+
+    def map_emote(
+        self,
+        *,
+        dialogue_intent: Optional[str] = None,
+        suggested_emote_id: Optional[str] = None,
+        behavior_action: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        mapper = self.registry.get_emote_mapper()
+        state = self.state_manager.state
+
+        if mapper is None:
+            selection = EmoteSelection(
+                emote_id="calm_neutral",
+                reason="no_emote_mapper_available",
+                intensity=0.3,
+                source="runtime",
+                confidence=0.2,
+            )
+        else:
+            selection = mapper.map_emote(
+                current_mood=state.mood,
+                dialogue_intent=dialogue_intent,
+                suggested_emote_id=suggested_emote_id,
+                behavior_action=behavior_action,
+                safe_mode=state.safe_mode,
+                degraded_mode=state.degraded_mode,
+            )
+
+        result = selection.to_dict()
+        self.state["last_emote"] = result
+        self.state_manager.set_emote(result["emote_id"])
+        self.remember(
+            kind="emote_selection",
+            content=result["emote_id"],
+            source=result["source"],
+            tags=["emote"],
+            metadata=result,
+        )
+        self.emit_trace(
+            "emote_mapped",
+            f"Emote mapped: {result['emote_id']}",
+            source="emote_mapper",
+            payload={"selection": result},
+        )
+        return result
+
+    def emote_status(self) -> Dict[str, Any]:
+        mapper = self.registry.get_emote_mapper()
+        return {
+            "mapper": mapper.healthcheck() if mapper else {"healthy": False, "reason": "missing"},
+            "last_emote": self.state.get("last_emote"),
+            "current_emote": self.state_manager.state.active_emote,
+        }
+
+    def generate_dialogue(self, user_text: Optional[str]) -> Dict[str, Any]:
+        provider = self.registry.get_dialogue_provider()
+        state = self.state_manager.state
+        if provider is None:
+            response = DialogueResponse(
+                spoken_text="I'm not ready to answer right now.",
+                intent="reply",
+                emote_id="calm_neutral",
+                confidence=0.2,
+                source="runtime",
+                metadata={"reason": "no_dialogue_provider"},
+            )
+        else:
+            response = provider.generate_reply(
+                user_text=user_text,
+                current_mood=state.mood,
+                current_focus=state.focus_target,
+                active_routine=state.active_routine,
+                safe_mode=state.safe_mode,
+                degraded_mode=state.degraded_mode,
+            )
+
+        result = response.to_dict()
+        self.state["last_dialogue"] = result
+        self.state["last_input"] = user_text
+        self.state["last_reply"] = result["spoken_text"]
+        self.state_manager.note_turn(user_text or "", result["spoken_text"], mood=state.mood)
+        self.remember(
+            kind="dialogue_response",
+            content=result["spoken_text"],
+            source=result["source"],
+            tags=["dialogue"],
+            metadata=result,
+        )
+        self.emit_trace(
+            "dialogue_generated",
+            f"Dialogue generated: {result['intent']}",
+            source="dialogue_provider",
+            payload={"input": user_text, "response": result},
+        )
+        self.map_emote(
+            dialogue_intent=result.get("intent"),
+            suggested_emote_id=result.get("emote_id"),
+        )
+        return result
+
+    def dialogue_status(self) -> Dict[str, Any]:
+        provider = self.registry.get_dialogue_provider()
+        return {
+            "provider": provider.healthcheck() if provider else {"healthy": False, "reason": "missing"},
+            "last_dialogue": self.state.get("last_dialogue"),
+        }
+
+    def poll_perception(self) -> List[Dict[str, Any]]:
+        observations: List[Dict[str, Any]] = []
+        for source in self.registry.get_perception_sources():
+            polled = source.poll_observations()
+            observations.extend([obs.to_dict() for obs in polled])
+        self.state["last_observations"] = observations
+        self.emit_trace(
+            "perception_polled",
+            "Perception sources polled",
+            source="perception",
+            payload={"count": len(observations), "observations": observations},
+        )
+        for obs in observations:
+            self.remember(
+                kind="observation",
+                content=f"{obs['observation_type']}={obs['value']}",
+                source=obs["source"],
+                tags=["perception"],
+                metadata=obs,
+            )
+        return observations
+
+    def apply_perception(self) -> Dict[str, Any]:
+        observations = self.poll_perception()
+        applied_focus = None
+        for obs in observations:
+            if obs["observation_type"] == "presence" and obs["value"] == "guest_present":
+                applied_focus = "guest"
+                break
+            if obs["observation_type"] == "attention_hint":
+                applied_focus = obs["value"]
+                break
+        if applied_focus:
+            self.state_manager.set_focus(applied_focus)
+            self.emit_trace(
+                "perception_applied",
+                f"Perception updated focus to {applied_focus}",
+                source="perception",
+                payload={"focus_target": applied_focus, "observations": observations},
+            )
+        return {
+            "observations": observations,
+            "state": self.character_state(),
+        }
+
+    def perception_status(self) -> Dict[str, Any]:
+        sources = self.registry.get_perception_sources()
+        return {
+            "sources": [source.healthcheck() for source in sources],
+            "last_observations": self.state.get("last_observations", []),
+        }
 
     def note_turn(self, user_text: str, reply_text: str, mood: Optional[str] = None) -> None:
         inferred_mood = mood or self.mood_engine.infer_from_turn(
@@ -236,6 +406,10 @@ class SweetieBotRuntime:
             source="behavior_director",
             payload={"input": user_text, "behavior": behavior},
         )
+        self.map_emote(
+            behavior_action=behavior.get("action"),
+            suggested_emote_id=behavior.get("emote_id"),
+        )
         return behavior
 
     def arbitrate_routine(self, requested_routine: Optional[str]) -> Dict[str, Any]:
@@ -309,7 +483,10 @@ class SweetieBotRuntime:
         return {
             "state": self.state,
             "character_state": self.character_state(),
+            "dialogue": self.dialogue_status(),
+            "emotes": self.emote_status(),
             "mood": self.mood_status(),
+            "perception": self.perception_status(),
             "attention": self.attention_status(),
             "behavior": self.behavior_status(),
             "telemetry": self.telemetry_status(),
