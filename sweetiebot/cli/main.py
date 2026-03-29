@@ -12,6 +12,16 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("runtime-health")
     sub.add_parser("state-show")
+    sub.add_parser("mood-show")
+    sub.add_parser("behavior-show")
+
+    behavior_suggest = sub.add_parser("behavior-suggest")
+    behavior_suggest.add_argument("--text")
+
+    mood_event = sub.add_parser("mood-event")
+    mood_event.add_argument("--event", required=True)
+
+    sub.add_parser("mood-decay")
 
     state_update = sub.add_parser("state-update")
     state_update.add_argument("--mood")
@@ -57,6 +67,26 @@ def main(argv=None):
 
     if args.command == "state-show":
         print(json.dumps(runtime.character_state(), indent=2))
+        return 0
+
+    if args.command == "mood-show":
+        print(json.dumps(runtime.mood_status(), indent=2))
+        return 0
+
+    if args.command == "behavior-show":
+        print(json.dumps(runtime.behavior_status(), indent=2))
+        return 0
+
+    if args.command == "behavior-suggest":
+        print(json.dumps(runtime.suggest_behavior(user_text=args.text), indent=2))
+        return 0
+
+    if args.command == "mood-event":
+        print(json.dumps(runtime.apply_mood_event(args.event), indent=2))
+        return 0
+
+    if args.command == "mood-decay":
+        print(json.dumps(runtime.decay_mood(), indent=2))
         return 0
 
     if args.command == "state-update":

@@ -30,6 +30,14 @@ class CharacterStateUpdateRequest(BaseModel):
     last_reply: Optional[str] = None
 
 
+class MoodEventRequest(BaseModel):
+    event: str
+
+
+class BehaviorSuggestRequest(BaseModel):
+    user_text: Optional[str] = None
+
+
 @app.get("/character/runtime-health")
 def runtime_health():
     return runtime.runtime_health()
@@ -43,6 +51,31 @@ def character_state():
 @app.post("/character/state")
 def update_character_state(payload: CharacterStateUpdateRequest):
     return runtime.update_character_state(**payload.model_dump())
+
+
+@app.get("/character/mood")
+def mood_status():
+    return runtime.mood_status()
+
+
+@app.post("/character/mood/event")
+def apply_mood_event(payload: MoodEventRequest):
+    return runtime.apply_mood_event(payload.event)
+
+
+@app.post("/character/mood/decay")
+def decay_mood():
+    return runtime.decay_mood()
+
+
+@app.get("/character/behavior")
+def behavior_status():
+    return runtime.behavior_status()
+
+
+@app.post("/character/behavior/suggest")
+def suggest_behavior(payload: BehaviorSuggestRequest):
+    return runtime.suggest_behavior(user_text=payload.user_text)
 
 
 @app.post("/character/memory/remember")
