@@ -2,7 +2,7 @@ import os
 from dataclasses import dataclass
 
 PROJECT_NAME = "sweetiebot-fork"
-VERSION = "0.0.3"
+VERSION = "0.0.4"
 
 
 @dataclass(frozen=True)

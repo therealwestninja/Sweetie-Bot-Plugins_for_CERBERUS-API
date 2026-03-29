@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
@@ -44,11 +45,37 @@ class RuntimeState:
             is_speaking=False,
         )
         self._bootstrap_routines(assets)
+        self._emit_runtime_snapshot(reason="boot")
 
     def _bootstrap_routines(self, assets: Path) -> None:
         routines_dir = assets / "routines"
         for file in routines_dir.glob("*.yaml"):
             self.routines.register(file.stem, {"id": file.stem, "path": str(file)})
+
+    def _emit(self, event_type: str, source: str, payload: dict[str, Any]) -> dict[str, Any]:
+        event = Event(type=event_type, source=source, payload=payload)
+        self.event_bus.emit(event)
+        return event.to_dict()
+
+    def _emit_runtime_snapshot(self, reason: str) -> None:
+        self._emit(
+            event_type="runtime.snapshot",
+            source="sweetiebot_runtime",
+            payload={
+                "reason": reason,
+                "character": self.get_character(),
+                "attention": self.get_attention(),
+                "routines": self.get_routines(),
+                "memory": self.get_memory_summary(),
+                "accessories": self.get_accessories(),
+            },
+        )
+
+    def subscribe_events(self) -> asyncio.Queue[dict[str, Any]]:
+        return self.event_bus.subscribe()
+
+    def unsubscribe_events(self, queue: asyncio.Queue[dict[str, Any]]) -> None:
+        self.event_bus.unsubscribe(queue)
 
     def get_character(self) -> dict[str, Any]:
         return asdict(self.character)
@@ -77,36 +104,29 @@ class RuntimeState:
         self.character.mood = self.persona_machine.transition(
             trigger_map.get(reply.intent, "praised")
         )
-        self.event_bus.emit(
-            Event(
-                type="dialogue.reply_ready",
-                source="sweetiebot_dialogue",
-                payload={
-                    "heard": text,
-                    "reply": reply.text,
-                    "intent": reply.intent.value,
-                    "emote_id": reply.emote_id,
-                },
-            )
-        )
-        return {
+        payload = {
             "heard": text,
             "reply": reply.text,
             "intent": reply.intent.value,
             "emote_id": reply.emote_id,
+            "character": self.get_character(),
+        }
+        self._emit("dialogue.reply_ready", "sweetiebot_dialogue", payload)
+        return {
+            **payload,
             "mood": self.character.mood.value,
         }
 
     def emote(self, emote_id: str | None = None) -> dict[str, Any]:
         command = self.emotes.for_mood(self.character.mood.value)
         selected_emote = emote_id or command.emote_id
-        self.event_bus.emit(
-            Event(
-                type="persona.changed",
-                source="sweetiebot_emotes",
-                payload={"emote_id": selected_emote, "mood": self.character.mood.value},
-            )
-        )
+        payload = {
+            "emote_id": selected_emote,
+            "mood": self.character.mood.value,
+            "duration_ms": command.duration_ms,
+            "character": self.get_character(),
+        }
+        self._emit("persona.changed", "sweetiebot_emotes", payload)
         return {
             "emote_id": selected_emote,
             "duration_ms": command.duration_ms,
@@ -119,13 +139,11 @@ class RuntimeState:
             raise KeyError(routine_id)
         self.character.active_routine = routine_id
         self.character.mood = self.persona_machine.transition("music")
-        self.event_bus.emit(
-            Event(
-                type="routine.started",
-                source="sweetiebot_routines",
-                payload={"routine_id": routine_id},
-            )
-        )
+        payload = {
+            "routine_id": routine_id,
+            "character": self.get_character(),
+        }
+        self._emit("routine.started", "sweetiebot_routines", payload)
         return {"active": routine_id, "mood": self.character.mood.value}
 
     def focus(
@@ -136,24 +154,23 @@ class RuntimeState:
     ) -> dict[str, Any]:
         self.attention.update(AttentionTarget(id=target_id, kind=mode, confidence=confidence))
         self.character.attention_target = target_id
-        self.event_bus.emit(
-            Event(
-                type="attention.target_changed",
-                source="sweetiebot_attention",
-                payload={"target_id": target_id, "confidence": confidence, "mode": mode},
-            )
-        )
+        payload = {
+            "target_id": target_id,
+            "confidence": confidence,
+            "mode": mode,
+            "character": self.get_character(),
+            "attention": self.get_attention(),
+        }
+        self._emit("attention.target_changed", "sweetiebot_attention", payload)
         return self.get_attention()
 
     def cancel(self) -> dict[str, Any]:
         self.character.is_speaking = False
         self.character.active_routine = None
-        self.event_bus.emit(
-            Event(
-                type="routine.completed",
-                source="sweetiebot_runtime",
-                payload={"status": "cancelled"},
-            )
+        self._emit(
+            "routine.completed",
+            "sweetiebot_runtime",
+            {"status": "cancelled", "character": self.get_character()},
         )
         return self.get_character()
 

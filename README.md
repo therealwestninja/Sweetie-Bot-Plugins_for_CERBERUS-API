@@ -127,3 +127,10 @@ This scaffold now includes:
 See:
 - [First Commit Series](docs/FIRST_COMMIT_SERIES.md)
 - [Project Board Seed](docs/PROJECT_BOARD_SEED.md)
+
+
+## Current scaffold status
+
+- FastAPI character scaffold with REST routes and a live WebSocket event stream at `/ws/events`.
+- Browser operator console scaffold with live activity updates wired to the stream.
+- In-memory event bus, routine triggers, emote triggers, and dialogue test bench for the first vertical slice.

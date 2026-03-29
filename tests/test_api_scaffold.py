@@ -29,3 +29,22 @@ def test_routine_and_cancel_flow() -> None:
     cancel = client.post("/character/cancel")
     assert cancel.status_code == 200
     assert cancel.json()["active_routine"] is None
+
+
+def test_events_endpoint_and_websocket_stream() -> None:
+    events_before = client.get("/events")
+    assert events_before.status_code == 200
+    assert "items" in events_before.json()
+
+    with client.websocket_connect("/ws/events") as websocket:
+        snapshot = websocket.receive_json()
+        assert snapshot["type"] == "events.snapshot"
+        assert snapshot["payload"]["character"]["persona_id"] == "sweetiebot_default"
+
+        client.post(
+            "/character/focus",
+            json={"target_id": "guest-01", "confidence": 0.9, "mode": "person"},
+        )
+        event = websocket.receive_json()
+        assert event["type"] == "attention.target_changed"
+        assert event["payload"]["target_id"] == "guest-01"

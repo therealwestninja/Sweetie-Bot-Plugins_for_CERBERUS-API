@@ -1,9 +1,13 @@
 import { getApiBaseUrl, setApiBaseUrl } from "./api.js";
-import { cancelCharacterAction, loadCharacterState, submitDialogue, triggerEmote } from "./character.js";
+import { cancelCharacterAction, loadCharacterState, triggerEmote } from "./character.js";
 import { loadAccessories } from "./accessories.js";
+import { submitDialogue } from "./dialogue.js";
+import { connectEventStream } from "./events.js";
 import { loadMemorySummary, summarizeMemory } from "./memory.js";
 import { personaPresets } from "./persona.js";
 import { loadRoutineList, startRoutine } from "./routines.js";
+
+let eventSocket = null;
 
 function $(selector) {
   return document.querySelector(selector);
@@ -11,6 +15,17 @@ function $(selector) {
 
 function renderJson(selector, payload) {
   $(selector).textContent = JSON.stringify(payload, null, 2);
+}
+
+function appendActivity(entry) {
+  const host = $("#activity-log");
+  const lines = host.textContent.trim() ? host.textContent.split("
+
+") : [];
+  lines.unshift(JSON.stringify(entry, null, 2));
+  host.textContent = lines.slice(0, 12).join("
+
+");
 }
 
 function renderPersonaPresets() {
@@ -44,11 +59,46 @@ async function refreshDashboard() {
     button.textContent = routineId;
     button.addEventListener("click", async () => {
       const result = await startRoutine(routineId);
-      renderJson("#activity-log", result);
+      appendActivity(result);
       await refreshDashboard();
     });
     routineList.appendChild(button);
   }
+}
+
+function handleEvent(event) {
+  appendActivity(event);
+  if (event.type === "events.snapshot") {
+    const snapshot = event.payload;
+    renderJson("#character-state", snapshot.character);
+    renderJson("#accessory-state", snapshot.accessories);
+    renderJson("#memory-state", summarizeMemory(snapshot.memory));
+    $("#status-line").textContent = `${snapshot.character.persona_id} · mood=${snapshot.character.mood} · speaking=${snapshot.character.is_speaking} · stream=live`;
+    return;
+  }
+
+  const character = event.payload?.character;
+  if (character) {
+    renderJson("#character-state", character);
+    $("#status-line").textContent = `${character.persona_id} · mood=${character.mood} · speaking=${character.is_speaking} · stream=live`;
+  }
+}
+
+function connectLiveEvents() {
+  if (eventSocket) {
+    eventSocket.close();
+  }
+  eventSocket = connectEventStream({
+    onMessage: handleEvent,
+    onStatusChange: (status) => {
+      const line = $("#status-line");
+      if (!line.textContent.includes("stream=")) {
+        line.textContent = `${line.textContent} · stream=${status}`;
+      } else {
+        line.textContent = line.textContent.replace(/stream=[^·]+/, `stream=${status}`);
+      }
+    }
+  });
 }
 
 function wireApiSettings() {
@@ -56,6 +106,7 @@ function wireApiSettings() {
   input.value = getApiBaseUrl();
   $("#save-api-base-url").addEventListener("click", async () => {
     setApiBaseUrl(input.value);
+    connectLiveEvents();
     await refreshDashboard();
   });
 }
@@ -66,7 +117,7 @@ function wireDialogueForm() {
     const text = $("#dialogue-input").value.trim();
     if (!text) return;
     const result = await submitDialogue(text);
-    renderJson("#activity-log", result);
+    appendActivity(result);
     $("#dialogue-input").value = "";
     await refreshDashboard();
   });
@@ -74,13 +125,13 @@ function wireDialogueForm() {
 
 function wireEmoteActions() {
   $("#emote-curious").addEventListener("click", async () => {
-    renderJson("#activity-log", await triggerEmote("curious_headtilt"));
+    appendActivity(await triggerEmote("curious_headtilt"));
   });
   $("#emote-happy").addEventListener("click", async () => {
-    renderJson("#activity-log", await triggerEmote("happy_bounce"));
+    appendActivity(await triggerEmote("happy_bounce"));
   });
   $("#cancel-action").addEventListener("click", async () => {
-    renderJson("#activity-log", await cancelCharacterAction());
+    appendActivity(await cancelCharacterAction());
     await refreshDashboard();
   });
 }
@@ -90,6 +141,7 @@ async function main() {
   wireApiSettings();
   wireDialogueForm();
   wireEmoteActions();
+  connectLiveEvents();
   await refreshDashboard();
 }
 

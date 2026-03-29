@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from upstream_api.app.config import PROJECT_NAME, VERSION, settings
 from upstream_api.app.main_support import get_runtime
-from upstream_api.app.routes import accessories, attention, character, memory, routines
+from upstream_api.app.routes import accessories, attention, character, events, memory, routines
 
 app = FastAPI(title=PROJECT_NAME, version=VERSION)
 
@@ -22,6 +22,7 @@ app.include_router(attention.router)
 app.include_router(routines.router)
 app.include_router(memory.router)
 app.include_router(accessories.router)
+app.include_router(events.router)
 
 
 @app.get("/")

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sweetiebot-fork"
-version = "0.0.2"
+version = "0.0.4"
 description = "Aspirational monorepo scaffold for a character robot fork"
 requires-python = ">=3.11"
 
