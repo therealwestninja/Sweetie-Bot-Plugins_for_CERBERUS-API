@@ -1,83 +1,41 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List
 
-from .health import PluginHealthCheck, PluginHealthStatus
-from .manifest import PluginManifest
-from .types import PluginFamily
-
-
-class PluginError(RuntimeError):
-    """Base exception for plugin failures."""
+from sweetiebot.memory.models import MemoryQuery, MemoryRecord
 
 
 class BasePlugin:
-    def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
-        self.config: Dict[str, Any] = config or {}
+    plugin_id: str = "base.plugin"
+    plugin_type: str = "base"
 
-    @classmethod
-    def manifest(cls) -> PluginManifest:
-        raise NotImplementedError
+    def manifest(self) -> Dict[str, Any]:
+        return {
+            "plugin_id": self.plugin_id,
+            "plugin_type": self.plugin_type,
+            "version": "0.1.0",
+            "healthy": True,
+            "capabilities": [],
+        }
 
-    def configure(self, config: Dict[str, Any]) -> None:
-        self.config.update(config)
+    def configure(self, config: Dict[str, Any] | None = None) -> None:
+        self.config = config or {}
 
-    def validate(self) -> None:
-        return None
-
-    def healthcheck(self) -> PluginHealthCheck:
-        manifest = self.manifest()
-        return PluginHealthCheck(
-            plugin_id=manifest.plugin_id,
-            status=PluginHealthStatus.HEALTHY,
-            summary="Plugin is healthy.",
-        )
+    def healthcheck(self) -> Dict[str, Any]:
+        return {"healthy": True, "plugin_id": self.plugin_id}
 
     def shutdown(self) -> None:
         return None
 
 
-class DialogueProviderPlugin(BasePlugin):
-    @classmethod
-    def family(cls) -> PluginFamily:
-        return PluginFamily.DIALOGUE_PROVIDER
+class MemoryStorePlugin(BasePlugin):
+    plugin_type = "memory_store"
 
-    def generate_reply(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    def put(self, record: MemoryRecord) -> MemoryRecord:
         raise NotImplementedError
 
-
-class RoutinePackPlugin(BasePlugin):
-    @classmethod
-    def family(cls) -> PluginFamily:
-        return PluginFamily.ROUTINE_PACK
-
-    def get_routines(self) -> Dict[str, Any]:
+    def query(self, query: MemoryQuery) -> List[MemoryRecord]:
         raise NotImplementedError
 
-
-class SafetyPolicyPlugin(BasePlugin):
-    @classmethod
-    def family(cls) -> PluginFamily:
-        return PluginFamily.SAFETY_POLICY
-
-    def apply(self, reply: Dict[str, Any], context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        return reply
-
-
-class TTSProviderPlugin(BasePlugin):
-    @classmethod
-    def family(cls) -> PluginFamily:
-        return PluginFamily.TTS_PROVIDER
-
-    def synthesize(self, text: str, voice_profile: Optional[str] = None) -> Dict[str, Any]:
-        raise NotImplementedError
-
-
-class AudioOutputPlugin(BasePlugin):
-    @classmethod
-    def family(cls) -> PluginFamily:
-        return PluginFamily.AUDIO_OUTPUT
-
-    def play(self, audio_payload: Dict[str, Any]) -> Dict[str, Any]:
-        raise NotImplementedError
+    def recent(self, limit: int = 10) -> List[MemoryRecord]:
+        return self.query(MemoryQuery(limit=limit))

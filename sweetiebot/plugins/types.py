@@ -1,9 +1,7 @@
-from __future__ import annotations
-
 from enum import Enum
 
 
-class PluginFamily(str, Enum):
+class PluginType(str, Enum):
     PERSONA = "persona"
     DIALOGUE_PROVIDER = "dialogue_provider"
     EMOTE_MAPPER = "emote_mapper"

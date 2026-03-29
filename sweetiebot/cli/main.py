@@ -2,56 +2,99 @@ from __future__ import annotations
 
 import argparse
 import json
-from typing import Any
+
+from sweetiebot.runtime import SweetieBotRuntime
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="sweetiebot")
-    sub = parser.add_subparsers(dest="command", required=True)
+    sub = parser.add_subparsers(dest="command")
 
-    sub.add_parser("list-plugins", help="List registered plugins")
-    sub.add_parser("plugin-health", help="Show plugin health summary")
-    sub.add_parser("runtime-health", help="Show runtime health summary")
+    sub.add_parser("runtime-health")
+    sub.add_parser("state-show")
 
-    speak = sub.add_parser("speak-test", help="Run safe speech synthesis/playback test")
-    speak.add_argument("text")
-    speak.add_argument("--voice", default=None)
+    state_update = sub.add_parser("state-update")
+    state_update.add_argument("--mood")
+    state_update.add_argument("--focus-target")
+    state_update.add_argument("--active-routine")
+    state_update.add_argument("--active-emote")
+    state_update.add_argument("--accessory-scene")
+    state_update.add_argument("--safe-mode", choices=["true", "false"])
+    state_update.add_argument("--degraded-mode", choices=["true", "false"])
+
+    remember = sub.add_parser("remember")
+    remember.add_argument("--kind", required=True)
+    remember.add_argument("--content", required=True)
+    remember.add_argument("--source", default="cli")
+    remember.add_argument("--scope", default="session")
+
+    recent = sub.add_parser("memory-recent")
+    recent.add_argument("--limit", type=int, default=10)
+
+    search = sub.add_parser("memory-search")
+    search.add_argument("--text")
+    search.add_argument("--kind")
+    search.add_argument("--scope")
+    search.add_argument("--limit", type=int, default=10)
 
     return parser
 
 
-def run_cli(argv: list[str], runtime: Any) -> int:
+def _parse_bool(value):
+    if value is None:
+        return None
+    return value.lower() == "true"
+
+
+def main(argv=None):
     parser = build_parser()
     args = parser.parse_args(argv)
-
-    if args.command == "list-plugins":
-        if hasattr(runtime.plugin_registry, "plugins"):
-            payload = []
-            for plugin in runtime.plugin_registry.plugins():
-                manifest = plugin.manifest()
-                payload.append(
-                    {
-                        "plugin_id": manifest.plugin_id,
-                        "plugin_type": getattr(manifest.plugin_type, "value", str(manifest.plugin_type)),
-                        "version": manifest.version,
-                    }
-                )
-            print(json.dumps(payload, indent=2))
-            return 0
-        print("[]")
-        return 0
-
-    if args.command == "plugin-health":
-        print(json.dumps(runtime.plugin_summary(), indent=2))
-        return 0
+    runtime = SweetieBotRuntime()
 
     if args.command == "runtime-health":
-        print(json.dumps(runtime.health(), indent=2))
+        print(json.dumps(runtime.runtime_health(), indent=2))
         return 0
 
-    if args.command == "speak-test":
-        print(json.dumps(runtime.speak(text=args.text, voice=args.voice), indent=2))
+    if args.command == "state-show":
+        print(json.dumps(runtime.character_state(), indent=2))
+        return 0
+
+    if args.command == "state-update":
+        result = runtime.update_character_state(
+            mood=args.mood,
+            focus_target=args.focus_target,
+            active_routine=args.active_routine,
+            active_emote=args.active_emote,
+            accessory_scene=args.accessory_scene,
+            safe_mode=_parse_bool(args.safe_mode),
+            degraded_mode=_parse_bool(args.degraded_mode),
+        )
+        print(json.dumps(result, indent=2))
+        return 0
+
+    if args.command == "remember":
+        result = runtime.remember(args.kind, args.content, source=args.source, scope=args.scope)
+        print(json.dumps(result, indent=2))
+        return 0
+
+    if args.command == "memory-recent":
+        print(json.dumps({"items": runtime.recall(limit=args.limit)}, indent=2))
+        return 0
+
+    if args.command == "memory-search":
+        print(json.dumps({
+            "items": runtime.recall(
+                text=args.text,
+                kind=args.kind,
+                scope=args.scope,
+                limit=args.limit,
+            )
+        }, indent=2))
         return 0
 
     parser.print_help()
     return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

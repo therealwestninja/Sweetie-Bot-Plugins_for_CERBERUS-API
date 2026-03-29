@@ -1,30 +1,90 @@
-# Sweetie Bot Patch Bundle v7
+# Sweetie-Bot Fork
+> Aspirational character-robot monorepo for a CERBERUS/Unitree Go2-based "Sweetie-Bot" build.
 
-This patch bundle continues the easier production-readiness tasks by adding:
+This repository is an **aspirational scaffold** for a staged, convention-first, companion-later character robot project.
+It is designed to:
 
-- API endpoints for plugin health/status inspection
-- API endpoint for mock speech testing
-- CLI commands for plugin/system health inspection
-- Example YAML config for TTS/audio plugins
-- Documentation for speech plugin config shape
+- preserve an upstream robotics/runtime core
+- preserve an upstream web/operator console
+- add a **Sweetie-Bot character layer**
+- separate runtime code from character assets and operational tooling
+- stay merge-friendly and documentation-heavy from day one
 
-## Included files
+## Status
+**Version:** 0.0.1  
+**State:** aspirational scaffold / architecture seed / non-production
 
-- `sweetiebot/api/app.py`
-- `sweetiebot/cli/main.py`
-- `sweetiebot/runtime.py`
-- `sweetiebot/plugins/health.py`
-- `docs/PLUGIN_CONFIG_EXAMPLES.md`
-- `config/examples/plugins.speech.example.yaml`
-- `tests/test_api_health_and_speech.py`
-- `tests/test_cli_health.py`
+This repo intentionally contains:
+- structure
+- documentation
+- interface contracts
+- placeholder modules
+- sample schemas
+- sample plugin code
+- starter assets
+- stubs for future implementation
 
-## Notes
+It intentionally does **not** claim to be a working robot runtime.
 
-This is a patch-style bundle meant to be extracted into the repo root and merged with the existing project.
+## Monorepo layout
 
-The changes assume the prior plugin work already exists:
-- plugin registry
-- plugin health helpers
-- mock speech plugins
-- runtime plugin bootstrapping
+```text
+sweetiebot-fork/
+├── upstream-api/                  # tracked integration surface for CERBERUS API
+├── upstream-web/                  # tracked integration surface for CERBERUS web UI
+├── sweetiebot/                    # character-layer code
+├── plugins/                       # Sweetie-Bot runtime plugins
+├── sweetiebot-assets/             # persona, dialogue, emotes, routines, prompts
+├── sweetiebot-ops/                # deploy/replay/runbooks
+├── docs/                          # roadmap, vision, ADRs, safety, architecture
+├── tools/                         # extractors, packagers, log-review helpers
+├── tests/                         # contract and scaffold tests
+└── scripts/                       # bootstrap, packaging, dev helpers
+```
+
+## Design principles
+
+1. **Fork, do not rewrite.**
+2. **Safety always beats charm.**
+3. **Convention demo before open-ended companion.**
+4. **Character content is data, not hard-coded behavior.**
+5. **Perception informs behavior, but does not directly command actuators.**
+6. **All high-level actions funnel through the robot runtime and safety layers.**
+
+## Repo goals
+
+- give the project a clean starting point for GitHub
+- define ownership boundaries between runtime, UI, assets, and operations
+- make future implementation less chaotic
+- document intended interfaces before deep coding begins
+
+## Quick start
+
+```bash
+git clone <your-fork-url>
+cd sweetiebot-fork
+python scripts/bootstrap.py
+python scripts/tree.py
+```
+
+## Important note
+
+This repository is a **starter skeleton** only. Before becoming real:
+- wire it to actual upstream repositories
+- replace placeholders with real integration code
+- validate sim vs hardware behavior
+- build and enforce a real safety case
+- test every motion on hardware before public use
+
+## Documents
+
+- [Vision](docs/VISION.md)
+- [Roadmap](docs/ROADMAP.md)
+- [Requirements](docs/REQUIREMENTS.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Changelog](CHANGELOG.md)
+- [Contributing](CONTRIBUTING.md)
+- [Safety Case](docs/SAFETY_CASE.md)
+
+## Release
+Initial aspirational scaffold released on 2026-03-29.
