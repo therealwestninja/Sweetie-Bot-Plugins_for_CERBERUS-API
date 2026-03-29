@@ -35,6 +35,12 @@ class SayRequest(BaseModel):
     text: str = Field(..., min_length=1, max_length=1000)
 
 
+class NudgeRequest(BaseModel):
+    nudge_type: str = "attention"
+    source: str = "companion_web"
+    note: str = ""
+
+
 class PluginConfigRequest(BaseModel):
     plugins: dict[str, dict[str, Any]]
 
@@ -265,10 +271,18 @@ def create_app(
     app.state.gate_plugin   = _gate_plugin
     app.state.ctx_plugin    = _ctx_plugin
 
+    # Connect safety gate to event pipeline for automatic escalation
+    runtime.set_safety_gate(gate)
+
     from sweetiebot.api.routes.integration import create_integration_router
     integration_router, debug_router = create_integration_router(mapper, gate)
     app.include_router(integration_router)
     app.include_router(debug_router)
+
+    # ── Nudge handler (Companion Web Interface → gentle suggestions) ───
+    from sweetiebot.behavior.nudge_handler import NudgeHandler
+    nudge_handler = NudgeHandler()
+    app.state.nudge_handler = nudge_handler
 
     @app.get("/")
     def root() -> dict[str, Any]:
@@ -713,6 +727,132 @@ def create_app(
                 await ws.send_json(message)
         finally:
             events.disconnect(queue)
+
+    # ── Nudge endpoints (Companion Web Interface) ──────────────────────
+    # These replace the direct /character/routine and /character/emote calls
+    # with a "gentle suggestion" layer.  Sweetie-Bot reacts first, then decides.
+
+    @app.post("/character/nudge")
+    async def nudge(request: NudgeRequest) -> dict[str, Any]:
+        """
+        Companion Web Interface nudge endpoint.
+
+        Instead of directly commanding Sweetie-Bot, the web UI sends a nudge.
+        Sweetie-Bot reacts with a micro-reaction (verbal + emote), then the
+        decision matrix determines what she does next.
+
+        The micro_reaction is what fires immediately.
+        The suggested_action is a follow-on that passes through the safety gate.
+        """
+        from sweetiebot.behavior.nudge_handler import NudgeType
+
+        char_state = runtime.character_state()
+        result = nudge_handler.handle(
+            request.nudge_type,
+            current_mood=char_state.get("mood", "calm"),
+            active_routine=char_state.get("active_routine"),
+            safe_mode=char_state.get("safe_mode", False),
+            degraded_mode=char_state.get("degraded_mode", False),
+        )
+
+        # Record to ledger and telemetry
+        ledger.record("nudge.received", {
+            "nudge_type": result.nudge_type.value,
+            "decision": result.autonomy_decision.value,
+            "suggested_action": result.suggested_action,
+            "suppressed": result.suppressed,
+            "source": request.source,
+        })
+        runtime._emit_trace(
+            "nudge_received",
+            f"Nudge: {result.nudge_type.value} → {result.autonomy_decision.value}",
+            payload=result.to_dict(),
+        )
+
+        # Publish micro-reaction to WebSocket
+        await events.publish(EventEnvelope(
+            "character.nudge_reaction",
+            "sweetiebot_nudge",
+            {
+                "nudge_type": result.nudge_type.value,
+                "speech": result.micro_reaction.speech,
+                "emote": result.micro_reaction.emote,
+                "decision": result.autonomy_decision.value,
+                "suggested_action": result.suggested_action,
+                "suppressed": result.suppressed,
+                "character": bridge.character_payload(),
+            },
+        ))
+
+        return result.to_dict()
+
+    @app.get("/character/nudge/status")
+    def nudge_status() -> dict[str, Any]:
+        """Current nudge handler state and recent history."""
+        return nudge_handler.snapshot()
+
+    # ── Event ingestion endpoint ───────────────────────────────────────
+    @app.post("/character/event")
+    async def ingest_event(payload: dict[str, Any]) -> dict[str, Any]:
+        """
+        Ingest a raw event from any source into the event pipeline.
+
+        Events are normalised, state is updated, and action_hints are returned.
+        Safety-critical events (battery_critical, system_fault) automatically
+        escalate the safety gate.
+
+        Example events:
+          {"kind": "person_detected", "person_id": "guest_1"}
+          {"kind": "battery_low", "battery_pct": 18}
+          {"kind": "proximity_alert", "distance_m": 0.3}
+          {"kind": "system_fault", "fault_code": "motor_error", "severity": "critical"}
+        """
+        result = runtime.ingest_event(payload)
+        if result.get("safety_escalation"):
+            ws_mode_evt = EventEnvelope(
+                "safety.mode.changed",
+                "event_pipeline",
+                {
+                    "safety_mode": gate.safety_mode.value,
+                    "escalation": result["safety_escalation"],
+                    "event_kind": result["event"]["kind"],
+                    "character": bridge.character_payload(),
+                },
+            )
+            await events.publish(ws_mode_evt)
+        return result
+
+    @app.get("/character/events/recent")
+    def recent_events(limit: int = 20) -> dict[str, Any]:
+        """Recent events from the event pipeline."""
+        return {"items": runtime.event_pipeline.recent_events(limit=limit)}
+
+    # ── Expression endpoint ────────────────────────────────────────────
+    @app.post("/character/express")
+    async def express(payload: dict[str, Any]) -> dict[str, Any]:
+        """
+        Execute a coordinated expression (speech + motion + emote + accessory)
+        through the ExpressionCoordinator. Prevents channel overlap.
+
+        Body: {speech?, motion?, emote?, accessory?, interrupt_motion?}
+        motion must be a valid routine_id in the CERBERUS allowlist.
+        """
+        result = runtime.express(
+            speech=payload.get("speech"),
+            motion=payload.get("motion"),
+            emote=payload.get("emote"),
+            accessory=payload.get("accessory"),
+            interrupt_motion=payload.get("interrupt_motion", False),
+        )
+        if result.get("ok"):
+            await _publish_refresh(bridge, "persona.changed", "sweetiebot_expression",
+                                   {"expression": result})
+        return result
+
+    @app.get("/character/expression/status")
+    def expression_status() -> dict[str, Any]:
+        """Current ExpressionCoordinator channel state."""
+        return runtime.expression_coordinator.snapshot()
 
     return app
 

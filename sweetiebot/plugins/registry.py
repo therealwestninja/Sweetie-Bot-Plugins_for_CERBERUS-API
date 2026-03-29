@@ -17,6 +17,7 @@ from sweetiebot.plugins.builtins import (
     RuleBasedAttentionStrategyPlugin,
     AllowlistCerberusMapperPlugin,
     RuleBasedSafetyGatePlugin,
+    StructuredDialogueProviderPlugin,
 )
 from sweetiebot.plugins.config import load_plugin_config
 from sweetiebot.plugins.health import summarize_plugin_health
@@ -48,6 +49,8 @@ class PluginRegistry:
             AllowlistCerberusMapperPlugin(),
             RuleBasedSafetyGatePlugin(),
             MemoryContextBuilderPlugin(),
+            # ── Structured dialogue (higher priority than rule-based) ──
+            StructuredDialogueProviderPlugin(),
         ]:
             if plugin.plugin_id not in self._plugins:
                 self.register(plugin)

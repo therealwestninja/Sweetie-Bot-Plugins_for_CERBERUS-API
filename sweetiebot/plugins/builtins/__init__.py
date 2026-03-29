@@ -14,6 +14,7 @@ from .emotes import RuleBasedEmoteMapperPlugin
 from .memory import InMemoryStorePlugin, SQLiteMemoryStorePlugin
 from .mock_speech import MockAudioOutputPlugin, MockTTSProviderPlugin
 from .perception import MockPerceptionSourcePlugin
+from .structured_dialogue import StructuredDialogueProviderPlugin
 from .telemetry import InMemoryTelemetrySinkPlugin
 
 __all__ = [
@@ -32,4 +33,5 @@ __all__ = [
     "RuleBasedEmoteMapperPlugin",
     "RuleBasedSafetyGatePlugin",
     "SQLiteMemoryStorePlugin",
+    "StructuredDialogueProviderPlugin",
 ]

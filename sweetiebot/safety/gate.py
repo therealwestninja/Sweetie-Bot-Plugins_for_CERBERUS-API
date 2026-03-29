@@ -181,16 +181,22 @@ class SafetyGate:
         if response.degraded_mode and mode == SafetyMode.NORMAL:
             mode = SafetyMode.DEGRADED
 
-        # ── emergency: block everything ────────────────────────────────
+        # ── emergency: block everything EXCEPT return_to_neutral ──────
         if mode == SafetyMode.EMERGENCY:
-            result = GateResult(
-                allowed=False,
-                safety_mode=mode,
-                rejection_reasons=[PlanRejectionReason.SAFE_MODE_BLOCKED],
-                rejection_detail="EMERGENCY mode: all commands blocked",
-            )
-            self._audit("blocked_emergency", {"response_id": response.response_id})
-            return result
+            # return_to_neutral always allowed even in emergency — it's the
+            # recovery command. Everything else is blocked.
+            if response.routine_id and response.routine_id != "return_to_neutral":
+                result = GateResult(
+                    allowed=False,
+                    safety_mode=mode,
+                    rejection_reasons=[PlanRejectionReason.SAFE_MODE_BLOCKED],
+                    rejection_detail="EMERGENCY mode: only 'return_to_neutral' is permitted",
+                )
+                self._audit("blocked_emergency", {"response_id": response.response_id})
+                return result
+            elif not response.routine_id:
+                # No routine requested — emote/speech only is OK even in emergency
+                pass
 
         # ── safe mode: only return_to_neutral allowed ──────────────────
         if mode == SafetyMode.SAFE:
@@ -339,6 +345,76 @@ class SafetyGate:
 
     def recent_audit(self, limit: int = 20) -> List[Dict[str, Any]]:
         return list(reversed(self._audit_log[-limit:]))
+
+    def emergency_stop(self) -> Dict[str, Any]:
+        """
+        Hard-set EMERGENCY mode. Blocks all non-neutral commands.
+        Also clears all active cooldowns so return_to_neutral fires immediately.
+        """
+        prev = self._safety_mode
+        self._safety_mode = SafetyMode.EMERGENCY
+        self._buckets.clear()   # clear cooldowns so neutral always fires
+        self._last_any_request_at = 0.0
+        self._audit("emergency_stop", {"prev_mode": prev.value})
+        logger.critical("SafetyGate EMERGENCY STOP engaged (was %s)", prev.value)
+        return {
+            "ok": True,
+            "safety_mode": SafetyMode.EMERGENCY.value,
+            "prev_mode": prev.value,
+            "cooldowns_cleared": True,
+        }
+
+    def check_preconditions(
+        self,
+        routine_id: str,
+        *,
+        current_routine: Optional[str] = None,
+        is_standing: bool = True,
+    ) -> Dict[str, Any]:
+        """
+        Check motion preconditions before allowing a routine.
+
+        Returns {"ok": True} if preconditions are met, or
+        {"ok": False, "reason": "..."} if not.
+
+        Current preconditions:
+        - Robot must be standing (is_standing=True) for motion routines
+        - Non-interruptible routines block new routines
+        - Emergency mode blocks everything except return_to_neutral
+        """
+        if self._safety_mode == SafetyMode.EMERGENCY:
+            if routine_id != "return_to_neutral":
+                return {"ok": False, "reason": "emergency_mode_active"}
+
+        # Motion requires standing posture (basic precondition)
+        REQUIRES_STANDING = {
+            "greeting_01", "greet_guest", "photo_pose", "idle_cute"
+        }
+        if routine_id in REQUIRES_STANDING and not is_standing:
+            return {"ok": False, "reason": "robot_not_standing"}
+
+        return {"ok": True}
+
+    def check_repetition(self, routine_id: str, recent_routines: List[str], max_repeats: int = 2) -> bool:
+        """
+        Returns True (suppress) if routine_id has been repeated too many times
+        recently without other routines interspersed.
+
+        Prevents the robot from doing the same thing endlessly.
+        """
+        if not recent_routines:
+            return False
+        consecutive = 0
+        for r in reversed(recent_routines):
+            if r == routine_id:
+                consecutive += 1
+                if consecutive >= max_repeats:
+                    self._audit("repetition_suppressed", {"routine_id": routine_id, "consecutive": consecutive})
+                    logger.info("SafetyGate: repetition suppressed for %s (%d times)", routine_id, consecutive)
+                    return True
+            else:
+                break
+        return False
 
     # ------------------------------------------------------------------
     # Internals

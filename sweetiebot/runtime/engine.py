@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import os
 from typing import Any, Callable
 
+from sweetiebot.adapters.unitree_go2 import UnitreeGo2Adapter
 from sweetiebot.behavior.director import BehaviorDirector
 from sweetiebot.dialogue.contracts import DialogueDirective, DialogueReply
 from sweetiebot.mood.engine import MoodEngine
@@ -11,6 +13,8 @@ from sweetiebot.plugins.types import PluginType
 from sweetiebot.plugins.builtins import RuleBasedDialogueProviderPlugin, RuleBasedEmoteMapperPlugin
 from sweetiebot.routines.arbitrator import RoutineArbitrator
 from sweetiebot.routines.registry import RoutineRegistry
+from sweetiebot.runtime.expression_coordinator import ExpressionCoordinator
+from sweetiebot.runtime.event_pipeline import EventPipeline
 from sweetiebot.state.manager import CharacterStateManager
 from sweetiebot.telemetry.models import TraceEvent
 
@@ -44,18 +48,29 @@ class SweetieBotRuntime:
         plugins: PluginRegistry | None = None,
         plugin_registry: PluginRegistry | None = None,
     ) -> None:
+        # ── Plugin registry ────────────────────────────────────────────
+        self.plugins = plugin_registry or plugins or PluginRegistry()
+        if hasattr(self.plugins, "register_builtins"):
+            self.plugins.register_builtins()
+
+        # ── Dialogue — use RuleBasedDialogueProviderPlugin as the engine's
+        # internal provider. The registry's LocalDialogueProviderPlugin runs
+        # through the _reply_from_plugins() path (handle_text).
+        # StructuredDialogueProviderPlugin is available in the registry for
+        # direct use and future LLM integration.
         self.dialogue_provider = dialogue or RuleBasedDialogueProviderPlugin()
         self.emote_mapper = RuleBasedEmoteMapperPlugin()
         self.mood_engine = MoodEngine()
         self.behavior_director = BehaviorDirector()
         self.arbitrator = RoutineArbitrator()
-        self.plugins = plugin_registry or plugins or PluginRegistry()
-        if hasattr(self.plugins, "register_builtins"):
-            self.plugins.register_builtins()
+
+        # ── Routines ───────────────────────────────────────────────────
         self.routines = routines or RoutineRegistry()
         if hasattr(self.plugins, "iter_routine_payloads"):
             for routine_id, payload in self.plugins.iter_routine_payloads().items():
                 self.routines.register(routine_id, payload)
+
+        # ── Memory ─────────────────────────────────────────────────────
         self.memory_store = None
         if hasattr(self.plugins, "get_memory_store"):
             try:
@@ -65,6 +80,8 @@ class SweetieBotRuntime:
         if self.memory_store is None:
             from sweetiebot.plugins.builtins.memory import InMemoryStorePlugin
             self.memory_store = InMemoryStorePlugin()
+
+        # ── State ──────────────────────────────────────────────────────
         self.state_manager = CharacterStateManager(memory_store=self.memory_store)
         self.persona_payload = validate_persona(PERSONA_LIBRARY["sweetiebot_default"])
         self.dialogue_rules = {
@@ -89,6 +106,22 @@ class SweetieBotRuntime:
             last_speech=None,
             last_playback=None,
         )
+
+        # ── Hardware adapter (sim by default) ─────────────────────────
+        self.adapter = UnitreeGo2Adapter()
+        self.adapter.connect()
+
+        # ── Expression coordinator ─────────────────────────────────────
+        # Coordinates speech + motion + emote + accessory without overlap.
+        self.expression_coordinator = ExpressionCoordinator(self.adapter)
+
+        # ── Event pipeline ─────────────────────────────────────────────
+        # Normalises incoming events (sensor, operator, hardware watchdog).
+        # Gate reference set lazily via set_safety_gate() from app.py.
+        self.event_pipeline = EventPipeline(
+            state_manager=self.state_manager,
+        )
+
         self._emit_trace("runtime_initialized", "Sweetie Bot runtime initialized")
 
     def _emit_trace(self, event_type: str, message: str, payload: dict[str, Any] | None = None) -> None:
@@ -171,15 +204,26 @@ class SweetieBotRuntime:
             degraded_mode=self.state.degraded_mode,
         )
         result_dict = result.to_dict() if hasattr(result, "to_dict") else dict(result)
-        emote = self.emote_mapper.map_emote(current_mood=self.state_manager.state.mood, dialogue_intent=result_dict["intent"], suggested_emote_id=result_dict.get("emote_id"))
+        # Normalise: DialogueResponse uses "spoken_text", older paths use "text"
+        spoken = result_dict.get("spoken_text") or result_dict.get("text", "")
+        result_dict.setdefault("spoken_text", spoken)
+
+        emote = self.emote_mapper.map_emote(
+            current_mood=self.state_manager.state.mood,
+            dialogue_intent=result_dict.get("intent", "reply"),
+            suggested_emote_id=result_dict.get("emote_id"),
+        )
         self.state.last_dialogue = result_dict
-        self.state.last_reply_text = result_dict["spoken_text"]
-        self.state["last_reply"] = result_dict["spoken_text"]
-        self.state.last_intent = result_dict["intent"]
+        self.state.last_reply_text = spoken
+        self.state["last_reply"] = spoken
+        self.state.last_intent = result_dict.get("intent", "reply")
         self.state.last_user_text = user_text
         self.state.current_emote_id = emote.emote_id
         self.state.last_emote = emote.to_dict()
-        self.state_manager.note_turn(user_text, result_dict["spoken_text"], mood=self.mood_engine.infer_from_turn(user_text, result_dict["spoken_text"], self.state_manager.state.mood))
+        self.state_manager.note_turn(
+            user_text, spoken,
+            mood=self.mood_engine.infer_from_turn(user_text, spoken, self.state_manager.state.mood),
+        )
         return result_dict
 
     def dialogue_status(self) -> dict[str, Any]:
@@ -239,6 +283,8 @@ class SweetieBotRuntime:
         self.state.current_routine_id = "return_to_neutral"
         self.state.current_emote_id = "calm_neutral"
         self.state.safe_mode = True
+        # Route through expression coordinator for clean stop
+        self.expression_coordinator.return_to_neutral()
         return self.state
 
     def reset_neutral(self) -> RuntimeState:
@@ -246,7 +292,54 @@ class SweetieBotRuntime:
         self.state.current_emote_id = self.persona_payload["defaults"]["emote"]
         self.state.current_accessory_scene_id = self.persona_payload["defaults"]["accessory_scene"]
         self.state.safe_mode = False
+        self.expression_coordinator.return_to_neutral()
         return self.state
+
+    def set_safety_gate(self, gate: Any) -> None:
+        """Connect the safety gate to the event pipeline for escalation."""
+        self.event_pipeline._gate = gate
+
+    def ingest_event(self, raw: dict[str, Any]) -> dict[str, Any]:
+        """
+        Ingest a raw event from any source (operator, sensor, hardware).
+        Returns the PipelineResult as a dict.
+        """
+        result = self.event_pipeline.ingest(raw)
+        self._emit_trace(
+            "event_ingested",
+            f"Event: {result.event.kind.value}",
+            payload={"event_kind": result.event.kind.value,
+                     "action_hints": result.action_hints,
+                     "safety_escalation": result.safety_escalation},
+        )
+        return result.to_dict()
+
+    def express(
+        self,
+        *,
+        speech: str | None = None,
+        motion: str | None = None,
+        emote: str | None = None,
+        accessory: str | None = None,
+        interrupt_motion: bool = False,
+    ) -> dict[str, Any]:
+        """
+        Execute a coordinated expression through the ExpressionCoordinator.
+        Speech + motion + emote + accessory are sent without overlap.
+        """
+        result = self.expression_coordinator.express(
+            speech=speech,
+            motion=motion,
+            emote=emote,
+            accessory=accessory,
+            interrupt_motion=interrupt_motion,
+        )
+        self._emit_trace(
+            "expression_executed",
+            f"Expression: motion={motion} emote={emote}",
+            payload=result.to_dict(),
+        )
+        return result.to_dict()
 
     def _reply_from_plugins(self, user_text: str) -> DialogueReply:
         runtime_context = {"persona_payload": self.persona_payload, "runtime_state": self.state.to_dict()}

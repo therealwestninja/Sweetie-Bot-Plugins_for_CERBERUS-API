@@ -12,9 +12,14 @@ def test_plugin_registry_registers_builtins_and_sorts_by_priority() -> None:
     assert registry.list_ids_for_type(PluginType.SAFETY_POLICY) == [
         "sweetiebot.default_safety_policy"
     ]
-    assert registry.list_ids_for_type(PluginType.DIALOGUE_PROVIDER) == [
-        "sweetiebot.local_dialogue"
-    ]
+    # Both dialogue providers are registered.
+    # Local(priority=10) sorts before Structured(priority=20) so get_best_plugin
+    # returns LocalDialogueProviderPlugin — preserving the legacy run_dialogue path.
+    dialogue_ids = registry.list_ids_for_type(PluginType.DIALOGUE_PROVIDER)
+    assert "sweetiebot.local_dialogue" in dialogue_ids
+    assert "sweetiebot.dialogue.structured" in dialogue_ids
+    # Local (priority 10) wins over Structured (priority 20)
+    assert dialogue_ids[0] == "sweetiebot.local_dialogue"
     assert registry.list_ids_for_type(PluginType.ROUTINE_PACK) == ["sweetiebot.demo_routines"]
 
 
