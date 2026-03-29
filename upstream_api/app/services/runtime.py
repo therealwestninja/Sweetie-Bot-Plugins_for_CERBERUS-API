@@ -5,13 +5,17 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
+from plugins.sweetiebot_attention import SweetieBotAttentionPlugin
+from plugins.sweetiebot_dialogue import SweetieBotDialoguePlugin
+from plugins.sweetiebot_emotes import SweetieBotEmotesPlugin
+from plugins.sweetiebot_persona import SweetieBotPersonaPlugin
+from plugins.sweetiebot_routines import SweetieBotRoutinesPlugin
 from sweetiebot.accessories.manager import AccessoryManager
-from sweetiebot.character.intent_types import IntentType
 from sweetiebot.character.schemas import CharacterState, MoodState
 from sweetiebot.dialogue.manager import DialogueManager
 from sweetiebot.emotes.mapper import EmoteMapper
 from sweetiebot.memory.store import MemoryStore
-from sweetiebot.perception.attention_manager import AttentionManager, AttentionTarget
+from sweetiebot.perception.attention_manager import AttentionManager
 from sweetiebot.persona.loader import load_persona
 from sweetiebot.persona.state_machine import PersonaStateMachine
 from sweetiebot.routines.registry import RoutineRegistry
@@ -19,7 +23,7 @@ from upstream_api.app.services.events import Event, EventBus
 
 
 class RuntimeState:
-    """Tiny in-memory character runtime for scaffolding the first usable slice."""
+    """Small in-memory runtime that mirrors a CERBERUS-style plugin host."""
 
     def __init__(self) -> None:
         root = Path(__file__).resolve().parents[3]
@@ -27,11 +31,18 @@ class RuntimeState:
         self.event_bus = EventBus()
         self.persona_machine = PersonaStateMachine()
         self.dialogue = DialogueManager()
-        self.emotes = EmoteMapper()
+        self.emotes = EmoteMapper(assets / "emotes")
         self.attention = AttentionManager()
         self.memory = MemoryStore()
         self.accessories = AccessoryManager()
         self.routines = RoutineRegistry()
+        self.plugins = {
+            "sweetiebot_persona": SweetieBotPersonaPlugin(),
+            "sweetiebot_dialogue": SweetieBotDialoguePlugin(),
+            "sweetiebot_attention": SweetieBotAttentionPlugin(),
+            "sweetiebot_emotes": SweetieBotEmotesPlugin(),
+            "sweetiebot_routines": SweetieBotRoutinesPlugin(),
+        }
         self.persona_catalog = {
             "sweetiebot_default": load_persona(assets / "persona" / "default.yaml"),
             "sweetiebot_convention": load_persona(assets / "persona" / "convention.yaml"),
@@ -51,7 +62,7 @@ class RuntimeState:
     def _bootstrap_routines(self, assets: Path) -> None:
         routines_dir = assets / "routines"
         for file in routines_dir.glob("*.yaml"):
-            self.routines.register(file.stem, {"id": file.stem, "path": str(file)})
+            self.routines.register_from_yaml(file)
 
     def _emit(self, event_type: str, source: str, payload: dict[str, Any]) -> dict[str, Any]:
         event = Event(type=event_type, source=source, payload=payload)
@@ -70,6 +81,7 @@ class RuntimeState:
                 "memory": self.get_memory_summary(),
                 "accessories": self.get_accessories(),
                 "personas": self.list_personas(),
+                "plugins": self.get_plugins(),
             },
         )
 
@@ -80,36 +92,18 @@ class RuntimeState:
         self.event_bus.unsubscribe(queue)
 
     def list_personas(self) -> list[dict[str, Any]]:
-        personas = []
-        for persona in self.persona_catalog.values():
-            personas.append(
-                {
-                    "id": persona["id"],
-                    "display_name": persona.get("display_name", persona["id"]),
-                    "dialogue_style": persona.get("dialogue_style", {}),
-                    "motion_style": persona.get("motion_style", {}),
-                    "safety_profile": persona.get("safety_profile", "unknown"),
-                }
-            )
-        return personas
+        return self.plugins["sweetiebot_persona"].list_personas(self.persona_catalog)
+
+    def get_plugins(self) -> dict[str, Any]:
+        return {"items": [plugin.describe() for plugin in self.plugins.values()]}
 
     def apply_persona(self, persona_id: str, emit: bool = True) -> dict[str, Any]:
-        persona = self.persona_catalog.get(persona_id)
-        if not persona:
-            raise KeyError(persona_id)
-        self.character.persona_id = persona_id
-        self.dialogue.configure_persona(persona)
-        energy_bias = persona.get("motion_style", {}).get("energy_bias", "gentle")
-        if energy_bias == "showy":
-            self.character.mood = MoodState.EXCITED
-        elif energy_bias == "calm":
-            self.character.mood = MoodState.HAPPY
-        else:
-            self.character.mood = MoodState.CURIOUS
-        payload = {
-            "persona": persona,
-            "character": self.get_character(),
-        }
+        payload = self.plugins["sweetiebot_persona"].select_persona(
+            persona_catalog=self.persona_catalog,
+            persona_id=persona_id,
+            dialogue_manager=self.dialogue,
+            character=self.character,
+        )
         if emit:
             self._emit("persona.selected", "sweetiebot_persona", payload)
         return payload
@@ -126,62 +120,53 @@ class RuntimeState:
         }
 
     def get_routines(self) -> dict[str, Any]:
+        active = (
+            self.routines.get(self.character.active_routine)
+            if self.character.active_routine
+            else None
+        )
         return {
             "available": self.routines.list_ids(),
+            "items": self.routines.list_all(),
             "active": self.character.active_routine,
+            "active_detail": active,
         }
 
     def say(self, text: str) -> dict[str, Any]:
-        reply = self.dialogue.reply_for(text)
-        self.character.is_speaking = True
-        trigger_map = {
-            IntentType.GREET: "praised",
-            IntentType.SPEAK: "music" if "sing" in text.lower() else "praised",
-        }
-        self.character.mood = self.persona_machine.transition(
-            trigger_map.get(reply.intent, "praised")
+        payload = self.plugins["sweetiebot_dialogue"].handle_text(
+            text=text,
+            dialogue_manager=self.dialogue,
+            persona_machine=self.persona_machine,
+            character=self.character,
         )
-        payload = {
-            "heard": text,
-            "reply": reply.text,
-            "intent": reply.intent.value,
-            "emote_id": reply.emote_id,
-            "character": self.get_character(),
-        }
         self._emit("dialogue.reply_ready", "sweetiebot_dialogue", payload)
-        return {
-            **payload,
-            "mood": self.character.mood.value,
-        }
+        return {**payload, "mood": self.character.mood.value}
 
     def emote(self, emote_id: str | None = None) -> dict[str, Any]:
-        command = self.emotes.for_mood(self.character.mood.value)
-        selected_emote = emote_id or command.emote_id
-        payload = {
-            "emote_id": selected_emote,
-            "mood": self.character.mood.value,
-            "duration_ms": command.duration_ms,
-            "character": self.get_character(),
-        }
+        payload = self.plugins["sweetiebot_emotes"].select_emote(
+            emote_mapper=self.emotes,
+            mood=self.character.mood.value,
+            emote_id=emote_id,
+        )
+        payload["character"] = self.get_character()
         self._emit("persona.changed", "sweetiebot_emotes", payload)
-        return {
-            "emote_id": selected_emote,
-            "duration_ms": command.duration_ms,
-            "mood": self.character.mood.value,
-        }
+        return payload
 
     def run_routine(self, routine_id: str) -> dict[str, Any]:
-        routine = self.routines.get(routine_id)
-        if not routine:
-            raise KeyError(routine_id)
-        self.character.active_routine = routine_id
-        self.character.mood = self.persona_machine.transition("music")
-        payload = {
-            "routine_id": routine_id,
-            "character": self.get_character(),
-        }
+        payload = self.plugins["sweetiebot_routines"].start_routine(
+            routine_registry=self.routines,
+            persona_machine=self.persona_machine,
+            character=self.character,
+            routine_id=routine_id,
+        )
         self._emit("routine.started", "sweetiebot_routines", payload)
-        return {"active": routine_id, "mood": self.character.mood.value}
+        return {
+            "active": routine_id,
+            "mood": self.character.mood.value,
+            "title": payload["title"],
+            "step_count": payload["step_count"],
+            "steps": payload["steps"],
+        }
 
     def focus(
         self,
@@ -189,15 +174,14 @@ class RuntimeState:
         confidence: float = 1.0,
         mode: str = "person",
     ) -> dict[str, Any]:
-        self.attention.update(AttentionTarget(id=target_id, kind=mode, confidence=confidence))
-        self.character.attention_target = target_id
-        payload = {
-            "target_id": target_id,
-            "confidence": confidence,
-            "mode": mode,
-            "character": self.get_character(),
-            "attention": self.get_attention(),
-        }
+        payload = self.plugins["sweetiebot_attention"].focus(
+            attention_manager=self.attention,
+            character=self.character,
+            target_id=target_id,
+            confidence=confidence,
+            mode=mode,
+        )
+        payload["attention"] = self.get_attention()
         self._emit("attention.target_changed", "sweetiebot_attention", payload)
         return self.get_attention()
 

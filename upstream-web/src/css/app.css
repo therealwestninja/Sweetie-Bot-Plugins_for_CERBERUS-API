@@ -64,6 +64,9 @@ pre {
 .two-up {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
+.three-up {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
 .row {
   display: flex;
   align-items: center;
@@ -87,7 +90,7 @@ ul {
 }
 #routine-list button { min-width: 11rem; }
 @media (max-width: 800px) {
-  .hero, .two-up {
+  .hero, .two-up, .three-up {
     grid-template-columns: 1fr;
   }
 }

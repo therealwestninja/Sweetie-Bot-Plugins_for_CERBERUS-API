@@ -40,7 +40,9 @@ def test_persona_list_and_switch_flow() -> None:
 def test_routine_and_cancel_flow() -> None:
     response = client.post("/character/routine", json={"routine_id": "greeting_01"})
     assert response.status_code == 200
-    assert response.json()["active"] == "greeting_01"
+    payload = response.json()
+    assert payload["active"] == "greeting_01"
+    assert payload["step_count"] == 3
 
     cancel = client.post("/character/cancel")
     assert cancel.status_code == 200

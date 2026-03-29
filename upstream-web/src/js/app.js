@@ -5,7 +5,8 @@ import { submitDialogue } from "./dialogue.js";
 import { connectEventStream } from "./events.js";
 import { loadMemorySummary, summarizeMemory } from "./memory.js";
 import { applyPersonaPreset, fetchPersonaPresets } from "./persona.js";
-import { loadRoutineList, startRoutine } from "./routines.js";
+import { loadPlugins } from "./plugins.js";
+import { loadRoutines, startRoutine } from "./routines.js";
 
 let eventSocket = null;
 
@@ -47,27 +48,30 @@ async function renderPersonaPresets(activePersonaId = null) {
 }
 
 async function refreshDashboard() {
-  const [character, accessories, memory, routines] = await Promise.all([
+  const [character, accessories, memory, routines, plugins] = await Promise.all([
     loadCharacterState(),
     loadAccessories(),
     loadMemorySummary(),
-    loadRoutineList()
+    loadRoutines(),
+    loadPlugins()
   ]);
 
   $("#status-line").textContent = `${character.persona_id} · mood=${character.mood} · speaking=${character.is_speaking}`;
   renderJson("#character-state", character);
   renderJson("#accessory-state", accessories);
   renderJson("#memory-state", summarizeMemory(memory));
+  renderJson("#plugin-state", plugins);
   await renderPersonaPresets(character.persona_id);
 
   const routineList = $("#routine-list");
   routineList.innerHTML = "";
-  for (const routineId of routines) {
+  for (const routine of routines.items) {
     const button = document.createElement("button");
     button.type = "button";
-    button.textContent = routineId;
+    button.textContent = `${routine.id} · ${routine.steps.length} steps`;
+    button.title = routine.title;
     button.addEventListener("click", async () => {
-      const result = await startRoutine(routineId);
+      const result = await startRoutine(routine.id);
       appendActivity(result);
       await refreshDashboard();
     });
@@ -82,6 +86,7 @@ function handleEvent(event) {
     renderJson("#character-state", snapshot.character);
     renderJson("#accessory-state", snapshot.accessories);
     renderJson("#memory-state", summarizeMemory(snapshot.memory));
+    renderJson("#plugin-state", snapshot.plugins);
     $("#status-line").textContent = `${snapshot.character.persona_id} · mood=${snapshot.character.mood} · speaking=${snapshot.character.is_speaking} · stream=live`;
     void renderPersonaPresets(snapshot.character.persona_id);
     return;

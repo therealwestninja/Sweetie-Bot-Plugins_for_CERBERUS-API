@@ -1,76 +1,53 @@
 # Architecture
 
 ## Overview
-This monorepo separates the project into four logical layers:
 
-1. **Runtime core integration**
-2. **Sweetie-Bot character layer**
-3. **Content and asset layer**
-4. **Operations and deployment layer**
+The current scaffold has three layers:
 
-## Top-level flow
+1. **API scaffold** in `upstream_api/`
+2. **Reusable character logic** in `sweetiebot/` and `plugins/`
+3. **Operator console** in `upstream-web/src/`
 
-```mermaid
-flowchart TD
-    A[User / Crowd / Operator] --> B[Voice + Perception Layer]
-    B --> C[Dialogue Manager]
-    B --> D[Attention Manager]
-    C --> E[Character Director]
-    D --> E
-    E --> F[Intent / Emote Planner]
-    F --> G[Runtime Goal Queue / Behavior Engine]
-    F --> H[Speech Planner / TTS]
-    G --> I[Safety Layer]
-    I --> J[Robot Bridge / Sim Bridge]
-    J --> K[Robot Motion]
-    H --> L[Speaker + Face/LED + Tail]
-    K --> M[Telemetry / State]
-    M --> D
-    M --> E
-    M --> N[Web Interface / Operator Dashboard]
+The API owns state, transport, and the event bus.
+The plugins own character decisions.
+The assets repo folder supplies persona, emote, and routine data.
+
+## Runtime flow
+
+```text
+HTTP / WebSocket request
+        ↓
+FastAPI route
+        ↓
+RuntimeState
+        ↓
+Sweetie-Bot plugin
+        ↓
+asset-backed helpers in sweetiebot/
+        ↓
+event bus + response payload
 ```
 
-## Ownership
+## Why the plugin split matters
 
-### Runtime core
-Owns:
-- robot motion
-- bridge selection
-- safety
-- plugin lifecycle
-- authoritative runtime state
+The interesting parts of Sweetie-Bot are now easier to reuse:
 
-### Sweetie-Bot layer
-Owns:
-- persona state
-- dialogue logic
-- attention policies
-- routine planning
-- memory rules
-- expression mapping
+- persona selection
+- dialogue generation
+- attention targeting
+- emote lookup
+- routine metadata
 
-### Assets
-Owns:
-- persona YAML
-- phrase banks
-- routines
-- prompt/style docs
-- accessory presets
+That means a future CERBERUS fork can absorb these pieces without taking the entire prototype runtime along for the ride.
 
-### Ops
-Owns:
-- bootstrapping
-- deploy profiles
-- runbooks
-- log replay
-- packaging helpers
+## Current limitations
 
-## Data contracts
-See:
-- `docs/contracts/EVENTS.md`
-- `docs/contracts/API.md`
-- `docs/contracts/ASSETS.md`
-- `docs/contracts/ROUTINES.md`
+- no real hardware bridge
+- no persistence beyond process memory
+- no auth on the scaffold routes
+- no actual routine execution engine yet, only routine metadata and selection
+- no speech synthesis or speech recognition yet
 
-## Architectural decisions
-See the ADRs in `docs/adr/`.
+## Next architectural step
+
+Add a tiny routine planner that can turn routine steps into an ordered list of timed actions for the operator console and, later, the robot runtime.

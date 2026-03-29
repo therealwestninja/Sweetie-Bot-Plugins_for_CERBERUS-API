@@ -1,143 +1,170 @@
 # Sweetie-Bot Fork
-> Aspirational character-robot monorepo for a CERBERUS/Unitree Go2-based "Sweetie-Bot" build.
 
-This repository is an **aspirational scaffold** for a staged, convention-first, companion-later character robot project.
-It is designed to:
+A playful, convention-first character robot scaffold built on top of a **CERBERUS / Unitree Go2** style runtime.
 
-- preserve an upstream robotics/runtime core
-- preserve an upstream web/operator console
-- add a **Sweetie-Bot character layer**
-- separate runtime code from character assets and operational tooling
-- stay merge-friendly and documentation-heavy from day one
+Sweetie-Bot is not trying to replace the upstream control stack. The goal is to keep the robot runtime recognizable, safety-first, and merge-friendly while layering on the things that make a character robot feel alive: persona presets, dialogue, attention, emotes, routines, and a lightweight operator console.
 
-## Status
-**Version:** 0.0.3  
-**State:** early working scaffold / API + controller slice / non-production
+> Current state: early prototype scaffold with a working in-memory API, reusable plugin-style modules, live event streaming, persona switching, and a tiny browser operator console.
 
-This repo intentionally contains:
-- structure
-- documentation
-- interface contracts
-- placeholder modules
-- sample schemas
-- sample plugin code
-- starter assets
-- stubs for future implementation
+## Why this repo exists
 
-It intentionally does **not** claim to be a working robot runtime.
+This repo is the "smallest useful slice" of a bigger build:
 
-It now includes a **tiny working in-memory API scaffold** and a **browser-side operator console scaffold** for the first API/controller slice.
+- keep the **robot runtime** separate from the **character layer**
+- prototype high-level character behavior as **reusable CERBERUS-style plugins**
+- prove API contracts and event contracts before hardware integration gets messy
+- treat choreography, persona data, and dialogue as **assets**, not hard-coded chaos
+- build toward a polished **convention demo** before chasing an open-ended companion robot
 
-## Monorepo layout
+## What works today
+
+### API scaffold
+
+Run the FastAPI scaffold and you get:
+
+- character state endpoints
+- persona preset listing and switching
+- emote triggering
+- routine triggering with real step metadata loaded from YAML assets
+- attention targeting
+- memory and accessory summary endpoints
+- plugin inventory endpoint
+- recent events endpoint
+- live WebSocket stream at `/ws/events`
+
+### Pluginized character layer
+
+The current pass moves more of the interesting behavior into reusable plugin-like modules:
+
+- `sweetiebot_persona` — persona selection and mood shaping
+- `sweetiebot_dialogue` — reply generation and intent tagging
+- `sweetiebot_attention` — social target updates
+- `sweetiebot_emotes` — mood-to-emote mapping with accessory hints
+- `sweetiebot_routines` — routine start metadata and step summaries
+
+These plugins are intentionally plain-Python and transport-agnostic so they can be transplanted into a richer CERBERUS plugin host later.
+
+### Web operator console
+
+The browser scaffold includes:
+
+- live character state
+- dialogue test bench
+- persona preset buttons
+- routine launcher with step counts
+- accessory summary
+- memory summary
+- plugin inventory view
+- live activity log driven by WebSocket events
+
+## Repository layout
 
 ```text
 sweetiebot-fork/
-├── upstream-api/                  # tracked integration surface for CERBERUS API
-├── upstream-web/                  # tracked integration surface for CERBERUS web UI
-├── sweetiebot/                    # character-layer code
-├── plugins/                       # Sweetie-Bot runtime plugins
-├── sweetiebot-assets/             # persona, dialogue, emotes, routines, prompts
-├── sweetiebot-ops/                # deploy/replay/runbooks
-├── docs/                          # roadmap, vision, ADRs, safety, architecture
-├── tools/                         # extractors, packagers, log-review helpers
-├── tests/                         # contract and scaffold tests
-└── scripts/                       # bootstrap, packaging, dev helpers
+├── upstream-api/                  # tracked integration surface for CERBERUS API docs/stubs
+├── upstream-web/                  # tracked integration surface for CERBERUS web docs/stubs
+├── upstream_api/                  # working FastAPI scaffold used in this repo
+├── sweetiebot/                    # core character-layer code
+├── plugins/                       # reusable CERBERUS-style runtime plugins
+├── sweetiebot-assets/             # persona, emotes, routines, dialogue prompts
+├── sweetiebot-ops/                # deployment/runbooks/replay tooling stubs
+├── docs/                          # roadmap, architecture, contracts, safety, vision
+├── tests/                         # scaffold and contract tests
+└── scripts/                       # dev helpers and GitHub seeding helpers
 ```
-
-## Design principles
-
-1. **Fork, do not rewrite.**
-2. **Safety always beats charm.**
-3. **Convention demo before open-ended companion.**
-4. **Character content is data, not hard-coded behavior.**
-5. **Perception informs behavior, but does not directly command actuators.**
-6. **All high-level actions funnel through the robot runtime and safety layers.**
-
-## Repo goals
-
-- give the project a clean starting point for GitHub
-- define ownership boundaries between runtime, UI, assets, and operations
-- make future implementation less chaotic
-- document intended interfaces before deep coding begins
 
 ## Quick start
 
-```bash
-git clone <your-fork-url>
-cd sweetiebot-fork
-python scripts/bootstrap.py
-python scripts/tree.py
-```
-
-## First coded slice
-
-Run the scaffold API:
+### API
 
 ```bash
 python -m upstream_api.app.main
 ```
 
-Then open `upstream-web/src/index.html` in a local static server, or serve it with your preferred frontend dev tool, and point it at `http://127.0.0.1:8080`.
+The API starts on `http://127.0.0.1:8080` by default.
 
-Implemented in this slice:
+### Web console
+
+Serve `upstream-web/src/` with any static file server and open `index.html`.
+The console defaults to `http://127.0.0.1:8080`, and you can change the base URL in the UI.
+
+## API surface
+
+### Read endpoints
+
 - `GET /`
 - `GET /character`
+- `GET /character/personas`
 - `GET /attention`
 - `GET /routines`
 - `GET /memory/summary`
 - `GET /accessories`
+- `GET /plugins`
+- `GET /events`
+
+### Command endpoints
+
 - `POST /character/say`
 - `POST /character/emote`
 - `POST /character/routine`
 - `POST /character/focus`
+- `POST /character/persona`
 - `POST /character/cancel`
 
-## Important note
+### Event stream
 
-This repository is a **starter skeleton** only. Before becoming real:
-- wire it to actual upstream repositories
-- replace placeholders with real integration code
-- validate sim vs hardware behavior
-- build and enforce a real safety case
-- test every motion on hardware before public use
+- `WS /ws/events`
 
-## Documents
+The stream sends a bootstrap snapshot, then forwards persona, dialogue, attention, routine, and emote events.
+
+## Design principles
+
+1. **Fork, do not rewrite.**
+2. **Safety always beats charm.**
+3. **Character logic should be reusable.**
+4. **Assets belong in data files whenever possible.**
+5. **Perception informs behavior but does not directly command hardware.**
+6. **Convention demo quality comes before open-ended autonomy.**
+
+## Roadmap snapshot
+
+### Current milestone
+- scaffold the reusable character layer
+- keep the API tiny but real
+- keep the web console useful enough for operator testing
+
+### Next milestone
+- routine step playback planning
+- richer memory and preference editing
+- better plugin host abstraction
+- operator "show mode" UI
+
+## Documentation
 
 - [Vision](docs/VISION.md)
 - [Roadmap](docs/ROADMAP.md)
 - [Requirements](docs/REQUIREMENTS.md)
 - [Architecture](docs/ARCHITECTURE.md)
-- [Changelog](CHANGELOG.md)
-- [Contributing](CONTRIBUTING.md)
+- [API Contract](docs/contracts/API.md)
+- [Event Contract](docs/contracts/EVENTS.md)
 - [Safety Case](docs/SAFETY_CASE.md)
+- [Contributing](CONTRIBUTING.md)
+- [Changelog](CHANGELOG.md)
 
-## Release
-Initial aspirational scaffold released on 2026-03-29.
+## Development
 
-## GitHub-ready additions
+```bash
+pytest
+ruff check .
+```
 
-This scaffold now includes:
-- GitHub issue forms
-- CI and docs workflows
-- Dependabot configuration
-- CODEOWNERS, SECURITY, and SUPPORT guides
-- a project-board seed file and `gh` seeding helper
-- a recommended first commit series for publishing the repo cleanly
+## Status
 
-See:
-- [First Commit Series](docs/FIRST_COMMIT_SERIES.md)
-- [Project Board Seed](docs/PROJECT_BOARD_SEED.md)
+- version: `0.0.6`
+- maturity: prototype scaffold
+- hardware status: not wired to a real robot yet
+- intended audience: collaborators building the character layer on top of CERBERUS
 
+## License
 
-## Current scaffold status
-
-- FastAPI character scaffold with REST routes and a live WebSocket event stream at `/ws/events`.
-- Browser operator console scaffold with live activity updates wired to the stream.
-- In-memory event bus, routine triggers, emote triggers, and dialogue test bench for the first vertical slice.
-
-
-## Latest scaffold progress
-
-- `0.0.5`: persona preset switching now works end-to-end across API, runtime, websocket events, and the web controller.
-- `0.0.4`: live event streaming scaffolded with runtime snapshots.
-- `0.0.3`: first usable API and controller slice.
+MIT for the scaffold in this repository. Respect the licenses of upstream projects and any third-party assets you add later.
