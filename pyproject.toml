@@ -4,10 +4,51 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sweetiebot-fork"
-version = "0.0.9"
+version = "0.1.0"
 description = "Aspirational monorepo scaffold for a character robot fork"
 requires-python = ">=3.11"
-dependencies = ["PyYAML>=6.0"]
+dependencies = [
+  "fastapi>=0.115",
+  "httpx>=0.28",
+  "uvicorn>=0.30",
+  "pydantic>=2.7",
+  "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+  "ruff>=0.11.0",
+]
+
+[project.entry-points."sweetiebot.plugins"]
+local_dialogue = "sweetiebot.plugins.builtins:LocalDialogueProviderPlugin"
+demo_routines = "sweetiebot.plugins.builtins:DemoRoutinePackPlugin"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
+[tool.setuptools]
+packages = [
+  "sweetiebot",
+  "sweetiebot.api",
+  "sweetiebot.api.routes",
+  "sweetiebot.character",
+  "sweetiebot.dialogue",
+  "sweetiebot.persona",
+  "sweetiebot.plugins",
+  "sweetiebot.routines",
+  "sweetiebot.runtime",
+  "upstream_api",
+  "plugins",
+]
+
+[tool.setuptools.package-data]
+sweetiebot = ["../sweetiebot-assets/**/*.yaml", "../sweetiebot-assets/**/*.json", "../sweetiebot-assets/**/*.md"]

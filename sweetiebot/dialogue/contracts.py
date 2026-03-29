@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
+from typing import Any
 
 from sweetiebot.character.intent_types import IntentType
 
@@ -22,6 +23,22 @@ class DialogueReply:
     directive: DialogueDirective = field(default_factory=DialogueDirective)
     confidence: float = 0.75
     fallback_mode: bool = False
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> "DialogueReply":
+        directive = payload.get("directive", {}) or {}
+        return cls(
+            intent=IntentType(payload["intent"]),
+            text=str(payload.get("text", "")),
+            directive=DialogueDirective(
+                emote_id=directive.get("emote_id"),
+                routine_id=directive.get("routine_id"),
+                accessory_scene_id=directive.get("accessory_scene_id"),
+                operator_note=directive.get("operator_note"),
+            ),
+            confidence=float(payload.get("confidence", 0.75)),
+            fallback_mode=bool(payload.get("fallback_mode", False)),
+        )
 
     def normalized(self) -> "DialogueReply":
         text = " ".join(self.text.split()).strip()
