@@ -19,15 +19,14 @@ def load_plugin_config(path: str | Path) -> dict[str, dict[str, Any]]:
     plugins = payload.get("plugins", payload)
     if not isinstance(plugins, dict):
         raise PluginConfigError("Plugin config must contain a 'plugins' mapping")
-
     normalized: dict[str, dict[str, Any]] = {}
     for plugin_id, config in plugins.items():
         if not isinstance(plugin_id, str) or not plugin_id.strip():
             raise PluginConfigError("Each plugin config entry needs a non-empty plugin id")
         if config is None:
             normalized[plugin_id] = {}
-            continue
-        if not isinstance(config, dict):
+        elif isinstance(config, dict):
+            normalized[plugin_id] = dict(config)
+        else:
             raise PluginConfigError(f"Plugin config for {plugin_id!r} must be a mapping")
-        normalized[plugin_id] = dict(config)
     return normalized

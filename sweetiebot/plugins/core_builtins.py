@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from sweetiebot.character.intent_types import IntentType
 from sweetiebot.dialogue.contracts import DialogueDirective, DialogueReply
 from sweetiebot.plugins.base import DialogueProviderPlugin, RoutinePackPlugin, SafetyPolicyPlugin
 from sweetiebot.plugins.manifest import PluginManifest
@@ -25,17 +26,17 @@ class LocalDialogueProviderPlugin(DialogueProviderPlugin):
         persona = ((runtime_context or {}).get("persona_payload") or {})
         preferred_greeting = persona.get("preferred_greeting")
         if any(word in lowered for word in ("hello", "hi", "hey")):
-            text = preferred_greeting or "Hi there!"
+            text = preferred_greeting or "Hi there! I'm Sweetie Bot!"
             directive = DialogueDirective(emote_id="curious_headtilt", routine_id="greet_guest")
-            return DialogueReply(intent="greet", text=text, directive=directive, confidence=0.92).to_dict()
+            return DialogueReply(intent=IntentType.GREET, text=text, directive=directive, confidence=0.92).to_dict()
         if any(word in lowered for word in ("photo", "camera", "pose")):
             directive = DialogueDirective(emote_id="happy_pose", routine_id="photo_pose")
-            return DialogueReply(intent="routine", text="Okay! I'll hold a cute pose.", directive=directive, confidence=0.88).to_dict()
+            return DialogueReply(intent=IntentType.ROUTINE, text="Okay! I'll hold a cute pose.", directive=directive, confidence=0.88).to_dict()
         if any(word in lowered for word in ("stop", "cancel", "quiet")):
             directive = DialogueDirective(emote_id="calm_neutral", routine_id="return_to_neutral")
-            return DialogueReply(intent="cancel", text="Okay. I am stopping and returning to neutral.", directive=directive, confidence=0.95).to_dict()
+            return DialogueReply(intent=IntentType.CANCEL, text="Okay. I am stopping and returning to neutral.", directive=directive, confidence=0.95).to_dict()
         directive = DialogueDirective(emote_id="curious_headtilt", routine_id=None)
-        return DialogueReply(intent="speak", text=f"I heard: {user_text[:80]}", directive=directive, confidence=0.65).to_dict()
+        return DialogueReply(intent=IntentType.SPEAK, text=f"I heard: {user_text[:80]}", directive=directive, confidence=0.65).to_dict()
 
 
 class DemoRoutinePackPlugin(RoutinePackPlugin):
@@ -110,7 +111,7 @@ class DefaultSafetyPolicyPlugin(SafetyPolicyPlugin):
         text_lower = reply.text.lower()
         if any(term in text_lower for term in blocked_terms):
             reply.text = "Let's keep things safe and friendly."
-            reply.intent = "cancel"
+            reply.intent = IntentType.CANCEL
             reply.directive.emote_id = "calm_neutral"
             reply.directive.routine_id = "return_to_neutral"
             reply.fallback_mode = True
@@ -118,3 +119,6 @@ class DefaultSafetyPolicyPlugin(SafetyPolicyPlugin):
             reply.text = reply.text[: max_spoken_chars - 1].rstrip() + "…"
             reply.fallback_mode = True
         return reply
+
+    def healthcheck(self) -> dict:
+        return {"healthy": True, "plugin_id": self.plugin_id, "max_spoken_chars": int(self.config.get("max_spoken_chars", 120)), "blocked_terms": list(self.config.get("blocked_terms", []))}

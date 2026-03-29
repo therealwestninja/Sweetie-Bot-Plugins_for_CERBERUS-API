@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from enum import Enum
 
 
@@ -17,3 +19,6 @@ class PluginType(str, Enum):
     TELEMETRY_SINK = "telemetry_sink"
     OPERATOR_CONTROL = "operator_control"
     ASSET_PACK = "asset_pack"
+
+
+PluginFamily = PluginType

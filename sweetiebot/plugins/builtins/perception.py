@@ -24,7 +24,7 @@ class MockPerceptionSourcePlugin(PerceptionSourcePlugin):
 
     def manifest(self) -> Dict[str, object]:
         base = super().manifest()
-        base["capabilities"] = ["poll_observations"]
+        base.capabilities = ["poll_observations"]
         return base
 
     def configure(self, config=None) -> None:

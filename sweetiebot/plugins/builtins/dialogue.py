@@ -14,7 +14,7 @@ class RuleBasedDialogueProviderPlugin(DialogueProviderPlugin):
 
     def manifest(self) -> Dict[str, object]:
         base = super().manifest()
-        base["capabilities"] = ["generate_reply"]
+        base.capabilities = ["generate_reply"]
         return base
 
     def generate_reply(

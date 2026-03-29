@@ -16,7 +16,7 @@ class InMemoryStorePlugin(MemoryStorePlugin):
 
     def manifest(self) -> Dict[str, object]:
         base = super().manifest()
-        base["capabilities"] = ["put", "query", "recent"]
+        base.capabilities = ["put", "query", "recent"]
         return base
 
     def put(self, record: MemoryRecord) -> MemoryRecord:
@@ -74,7 +74,7 @@ class SQLiteMemoryStorePlugin(MemoryStorePlugin):
 
     def manifest(self) -> Dict[str, object]:
         base = super().manifest()
-        base["capabilities"] = ["put", "query", "recent", "persistence"]
+        base.capabilities = ["put", "query", "recent", "persistence"]
         return base
 
     def put(self, record: MemoryRecord) -> MemoryRecord:

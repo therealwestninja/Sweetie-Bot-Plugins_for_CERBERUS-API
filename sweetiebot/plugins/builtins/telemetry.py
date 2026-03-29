@@ -15,7 +15,7 @@ class InMemoryTelemetrySinkPlugin(TelemetrySinkPlugin):
 
     def manifest(self) -> Dict[str, object]:
         base = super().manifest()
-        base["capabilities"] = ["emit", "recent_events"]
+        base.capabilities = ["emit", "recent_events"]
         return base
 
     def emit(self, event: TraceEvent) -> TraceEvent:

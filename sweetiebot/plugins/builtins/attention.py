@@ -14,7 +14,7 @@ class RuleBasedAttentionStrategyPlugin(AttentionStrategyPlugin):
 
     def manifest(self) -> Dict[str, object]:
         base = super().manifest()
-        base["capabilities"] = ["suggest_attention"]
+        base.capabilities = ["suggest_attention"]
         return base
 
     def suggest_attention(
