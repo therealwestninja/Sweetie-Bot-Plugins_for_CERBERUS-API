@@ -1,0 +1,19 @@
+name: sweetie-plugin-memory-alaya
+version: 1.0.0
+api_version: 1
+display_name: Sweetie Memory Alaya Plugin
+description: Episodic and semantic memory plugin with salience, decay, consolidation, and hybrid retrieval for CERBERUS-compatible Sweetie systems.
+capabilities:
+  - memory.store_episode
+  - memory.store_fact
+  - memory.query
+  - memory.consolidate
+  - memory.get
+  - memory.list
+  - memory.delete
+  - memory.status
+entrypoints:
+  execute: /execute
+  docs: /docs
+healthcheck: /health
+port: 7000
