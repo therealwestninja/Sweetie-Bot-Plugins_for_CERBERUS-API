@@ -1,63 +1,63 @@
-# 🤖 Sweetie-Bot Plugin Ecosystem
+# Sweetie-Bot Plugin Ecosystem
 
-Sweetie-Bot is a modular plugin ecosystem built to extend and enhance the CERBERUS robotics platform.
+🤖 Sweetie-Bot is a modular plugin ecosystem designed to extend and enhance the CERBERUS API and Unitree GO2 robotics platform.
 
 **Backend** https://github.com/therealwestninja/CERBERUS-UnitreeGo2CompanionAPI  
 **Interface:** https://github.com/therealwestninja/CERBERUS-UnitreeGo2Companion_Web-Interface  
 **Plugins: (You are here →)** https://github.com/therealwestninja/Sweetie-Bot-Plugins_for_CERBERUS-API
 
-## What is this?
-A drop-in system of containerized plugins that:
-- Extend CERBERUS API functionality
-- Add AI, autonomy, personality, and control layers
-- Allow developers to build reusable robotics modules
-
-## Included Plugins
-- cerberus-bridge
-- character
-- memory
-- autonomy
-- input
-- audio
-- emotion
-
-## Quick Start
-
-```bash
-docker-compose up --build
-```
+## Vision
+A fully autonomous AI character capable of:
+- Understanding its environment
+- Interacting with humans socially
+- Learning over time
+- Acting safely and independently
 
 ## Architecture
+Sweetie-Bot is composed of isolated containerized plugins communicating via:
+- REST `/execute` endpoints
+- Event Bus
+- Action Registry
 
-Core Concepts:
-- Plugins communicate via HTTP
-- Standard `/execute` endpoint
-- Shared schema (type + payload)
-- Stateless design where possible
+## Key Systems
+- Perception
+- Memory (Alaya + Consolidator)
+- Social Bonding
+- Attention + Cognition
+- Behavior Engine
+- Autonomy Supervisor
+- Safety Governor
+- Runtime Orchestrator
 
-## Plugin API Contract
+## Plugins (Current)
+- Event Bus
+- Action Registry
+- Gait Library
+- Social Bonding
+- Crusader Link
+- Autonomy Supervisor
+- (and many more evolving modules)
 
-POST /execute
+## How Plugins Work
+Each plugin:
+- Runs independently
+- Exposes `/execute`, `/health`, `/manifest`
+- Can be replaced without breaking the system
 
-```json
-{
-  "type": "action.type",
-  "payload": {}
-}
-```
+## Controller Integration
+The CERBERUS Controller communicates with plugins via:
+- HTTP calls
+- Config-driven endpoints
 
-## How to Make Your Own Plugin
+## Future Direction
+- Full autonomy
+- Human identity recognition
+- Peer robot coordination
+- Real-world deployment safety
 
-1. Copy plugin template
-2. Implement `/execute`
-3. Define capabilities in plugin.yaml
-4. Build Docker image
-
-## Coming Soon
-
-- AI control
-- Improved learning
-- Detection
-- Pathing
-- Reasoning
-- Real-world adaptation
+## How to Build Plugins
+1. Create a folder
+2. Add `plugin.yaml`
+3. Implement `/execute`
+4. Containerize (Docker)
+5. Register in Controller config
