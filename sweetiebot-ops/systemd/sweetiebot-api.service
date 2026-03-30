@@ -1,9 +1,0 @@
-[Unit]
-Description=Sweetie-Bot API Placeholder
-
-[Service]
-ExecStart=/usr/bin/env python -m upstream-api.app.main
-Restart=always
-
-[Install]
-WantedBy=multi-user.target

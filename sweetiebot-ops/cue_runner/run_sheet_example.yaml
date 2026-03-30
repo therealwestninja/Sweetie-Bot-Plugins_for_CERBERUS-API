@@ -1,8 +1,0 @@
-show_name: convention_demo
-cues:
-  - id: intro
-    routine: greeting_01
-  - id: song
-    routine: song_intro_01
-  - id: exit
-    routine: bow_exit_01
