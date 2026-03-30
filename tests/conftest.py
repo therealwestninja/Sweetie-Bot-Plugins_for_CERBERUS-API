@@ -5,6 +5,7 @@ import importlib.util
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+import os
 from typing import Any, Dict, Iterator
 
 import pytest
@@ -57,6 +58,38 @@ def discover_plugins() -> list[PluginInfo]:
 
 ALL_PLUGINS = discover_plugins()
 PLUGIN_BY_NAME = {plugin.name: plugin for plugin in ALL_PLUGINS}
+
+
+def _selected_plugin_names() -> set[str] | None:
+    raw = os.environ.get("SWEETIE_PLUGIN_FILTER", "").strip()
+    if not raw:
+        return None
+    return {part.strip() for part in raw.split(",") if part.strip()}
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    selected = _selected_plugin_names()
+    if not selected:
+        return
+
+    kept: list[pytest.Item] = []
+    deselected: list[pytest.Item] = []
+    for item in items:
+        callspec = getattr(item, "callspec", None)
+        plugin = None
+        if callspec is not None:
+            plugin = callspec.params.get("plugin")
+        if plugin is None:
+            kept.append(item)
+            continue
+        if getattr(plugin, "name", None) in selected:
+            kept.append(item)
+        else:
+            deselected.append(item)
+
+    if deselected:
+        config.hook.pytest_deselected(items=deselected)
+        items[:] = kept
 
 
 def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:

@@ -12,3 +12,6 @@ build/
 .mypy_cache/
 .DS_Store
 .ruff_cache/
+
+# Generated test outputs
+test-results/

@@ -74,3 +74,48 @@ python scripts/map_plugin_contracts.py > plugin-contract-map.json
 - Some plugins are simple pass-through stubs. The suite still verifies that they do not crash and that their public interfaces remain stable.
 - Plugins with external HTTP dependencies are isolated in tests with local test doubles so the suite can run offline and deterministically.
 - Python services are not the place where classic native memory corruption is most likely, but the fuzz and abuse tests are still useful for surfacing parser crashes, unbounded payload handling, serialization blowups, and exception leaks.
+
+## Avoiding bottlenecks and timeout stalls
+
+The suite now supports a staged runner that writes results to disk instead of relying on long inline console logs. This keeps large runs readable and prevents one deep fuzz case from hiding the rest of the findings.
+
+### Recommended staged run
+
+```bash
+python scripts/run_plugin_test_suite.py
+```
+
+This runner will:
+- execute a fast/core pytest pass first
+- write raw stdout/stderr logs to `test-results/`
+- write a machine-readable JSON summary to `test-results/plugin-test-report.json`
+- write a human-readable Markdown summary to `test-results/plugin-test-report.md`
+- run the deep fuzz case separately, one plugin at a time
+- enforce a per-plugin subprocess timeout for fuzzing so one bad case cannot stall the entire suite
+
+### Useful environment controls
+
+```bash
+SWEETIE_FUZZ_EXAMPLES=6 python scripts/run_plugin_test_suite.py
+SWEETIE_PLUGIN_FILTER=sweetie-plugin-event-bus python scripts/run_plugin_test_suite.py
+SWEETIE_FUZZ_TIMEOUT_SECONDS=30 python scripts/run_plugin_test_suite.py
+```
+
+Supported knobs:
+- `SWEETIE_PLUGIN_FILTER`: comma-separated plugin names to test
+- `SWEETIE_FAST_FUZZ_EXAMPLES`: Hypothesis example count for the always-on quick fuzz test
+- `SWEETIE_FUZZ_EXAMPLES`: Hypothesis example count for the deep fuzz test
+- `SWEETIE_FUZZ_TIMEOUT_SECONDS`: per-plugin timeout for the isolated fuzz subprocess
+- `SWEETIE_MAX_PROBE_LENGTH`: maximum oversized-string abuse payload length
+- `SWEETIE_FUZZ_MAX_KEYS`: maximum number of keys in generated fuzz payloads
+- `SWEETIE_FUZZ_MAX_TEXT`: maximum generated text length inside fuzz payloads
+
+### Fast CI / deep nightly split
+
+For pull requests and quick local checks, prefer:
+
+```bash
+pytest -m "not slow"
+```
+
+For a deeper pass, use the staged runner above or run only the slow fuzz test against targeted plugins.
