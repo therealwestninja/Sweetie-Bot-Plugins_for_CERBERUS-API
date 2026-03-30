@@ -1,0 +1,16 @@
+name: sweetie-plugin-routine-scheduler
+version: 1.0.0
+api_version: 1
+display_name: Sweetie Routine Scheduler
+description: Task scheduling and routine management layer.
+capabilities:
+  - routine.add
+  - routine.remove
+  - routine.list
+  - routine.tick
+  - routine.reset
+  - routine.status
+entrypoints:
+  execute: /execute
+healthcheck: /health
+port: 7000

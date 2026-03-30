@@ -1,0 +1,18 @@
+name: sweetie-plugin-spatial-memory
+version: 1.0.0
+api_version: 1
+display_name: Sweetie Spatial Memory
+description: Location memory, mapping, and environment awareness layer.
+capabilities:
+  - spatial.remember_location
+  - spatial.get_location
+  - spatial.list_locations
+  - spatial.update_position
+  - spatial.get_nearby
+  - spatial.reset
+  - spatial.status
+entrypoints:
+  execute: /execute
+  docs: /docs
+healthcheck: /health
+port: 7000

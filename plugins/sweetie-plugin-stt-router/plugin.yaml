@@ -1,0 +1,17 @@
+name: sweetie-plugin-stt-router
+version: 1.0.0
+api_version: 1
+display_name: Sweetie STT Router
+description: Speech-to-text request normalization, transcript routing, and intent-friendly speech input layer for CERBERUS-compatible Sweetie systems.
+capabilities:
+  - stt.transcribe
+  - stt.process_utterance
+  - stt.list_providers
+  - stt.set_defaults
+  - stt.get_defaults
+  - stt.status
+entrypoints:
+  execute: /execute
+  docs: /docs
+healthcheck: /health
+port: 7000
