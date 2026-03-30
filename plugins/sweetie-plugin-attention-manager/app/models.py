@@ -1,4 +1,3 @@
-from __future__ import annotations
 from typing import List
 from pydantic import BaseModel, Field
 
@@ -11,6 +10,8 @@ class AttentionCandidate(BaseModel):
     novelty: float = 0.0
     salience: float = 0.5
     persistence: float = 0.0
+    relationship_tier: str | None = None
+    target_kind: str = "entity"
 
 class IngestCandidatesRequest(BaseModel):
     candidates: List[AttentionCandidate] = Field(default_factory=list)

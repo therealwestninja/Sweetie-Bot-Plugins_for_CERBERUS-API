@@ -1,6 +1,5 @@
-from __future__ import annotations
-from typing import Any, Dict, List
 from pydantic import BaseModel, Field
+from typing import Any, Dict, List
 
 class PublishEventRequest(BaseModel):
     topic: str
@@ -11,9 +10,6 @@ class PublishEventRequest(BaseModel):
 class SubscribeRequest(BaseModel):
     subscriber_id: str
     topics: List[str] = Field(default_factory=list)
-
-class UnsubscribeRequest(BaseModel):
-    subscriber_id: str
 
 class PollRequest(BaseModel):
     subscriber_id: str

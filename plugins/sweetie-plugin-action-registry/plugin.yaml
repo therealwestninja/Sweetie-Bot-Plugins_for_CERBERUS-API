@@ -1,8 +1,8 @@
 name: sweetie-plugin-action-registry
-version: 1.0.0
+version: 2.1.0
 api_version: 1
-display_name: Sweetie Action Registry Plugin
-description: Named action registration, dispatch, adapter routing, and execution policy layer for CERBERUS-compatible Sweetie plugins.
+display_name: Sweetie Action Registry
+description: Updated action registry with newer ecosystem action templates and policy metadata.
 capabilities:
   - action.register
   - action.unregister
@@ -10,9 +10,9 @@ capabilities:
   - action.get
   - action.dispatch
   - action.set_policy
+  - action.seed_defaults
   - action.status
 entrypoints:
   execute: /execute
-  docs: /docs
 healthcheck: /health
 port: 7000

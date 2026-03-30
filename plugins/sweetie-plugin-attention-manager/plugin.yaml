@@ -1,8 +1,8 @@
 name: sweetie-plugin-attention-manager
-version: 1.0.0
+version: 2.0.0
 api_version: 1
 display_name: Sweetie Attention Manager
-description: Multi-target attention scoring, focus selection, and priority management for CERBERUS-compatible Sweetie systems.
+description: Updated multi-target attention scoring with social-bonding and autonomy-aware prioritization.
 capabilities:
   - attention.ingest_candidates
   - attention.rank
@@ -13,6 +13,5 @@ capabilities:
   - attention.status
 entrypoints:
   execute: /execute
-  docs: /docs
 healthcheck: /health
 port: 7000

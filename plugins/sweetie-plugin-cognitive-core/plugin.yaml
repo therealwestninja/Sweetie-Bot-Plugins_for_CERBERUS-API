@@ -1,8 +1,8 @@
 name: sweetie-plugin-cognitive-core
-version: 1.0.0
+version: 2.0.0
 api_version: 1
 display_name: Sweetie Cognitive Core
-description: Event interpretation, attention scoring, goal selection, and action suggestion layer for CERBERUS-compatible Sweetie systems.
+description: Updated cognition core that leverages attention, bonding, behavior, safety, and autonomy plugins.
 capabilities:
   - cognition.perceive_event
   - cognition.evaluate_context
@@ -13,6 +13,5 @@ capabilities:
   - cognition.status
 entrypoints:
   execute: /execute
-  docs: /docs
 healthcheck: /health
 port: 7000

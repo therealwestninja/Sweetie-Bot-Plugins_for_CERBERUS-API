@@ -1,11 +1,10 @@
-# sweetie-plugin-routine-scheduler
+# sweetie-plugin-routine-scheduler v2
 
-Manages repeating behaviors and scheduled tasks.
+Updated to better support:
+- autonomy-supervisor
+- navigation-core
+- docking-behavior
 
-## What it does
-- stores routines (patrol, idle, check operator, dock)
-- triggers tasks based on time/interval
-- returns next suggested action
-
-## Example
-Add a patrol routine every 60 seconds.
+New improvements:
+- each routine carries a suggested action template
+- triggered routines return richer data for autonomy and runtime orchestration

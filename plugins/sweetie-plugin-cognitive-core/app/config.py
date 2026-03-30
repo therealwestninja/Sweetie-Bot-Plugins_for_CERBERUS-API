@@ -1,14 +1,14 @@
 import os
 from dataclasses import dataclass
-
 @dataclass
 class Settings:
     plugin_name: str = os.getenv("PLUGIN_NAME", "sweetie-plugin-cognitive-core")
-    plugin_version: str = os.getenv("PLUGIN_VERSION", "1.0.0")
+    plugin_version: str = os.getenv("PLUGIN_VERSION", "2.0.0")
     memory_url: str = os.getenv("MEMORY_URL", "http://localhost:7000")
-    action_registry_url: str = os.getenv("ACTION_REGISTRY_URL", "http://localhost:7000")
-    world_model_url: str = os.getenv("WORLD_MODEL_URL", "http://localhost:7000")
     event_bus_url: str = os.getenv("EVENT_BUS_URL", "http://localhost:7000")
-    default_follow_standoff_m: float = float(os.getenv("DEFAULT_FOLLOW_STANDOFF_M", "0.8"))
-
+    attention_url: str = os.getenv("ATTENTION_URL", "http://localhost:7000")
+    bonding_url: str = os.getenv("BONDING_URL", "http://localhost:7000")
+    behavior_url: str = os.getenv("BEHAVIOR_URL", "http://localhost:7000")
+    safety_url: str = os.getenv("SAFETY_URL", "http://localhost:7000")
+    autonomy_url: str = os.getenv("AUTONOMY_URL", "http://localhost:7000")
 settings = Settings()

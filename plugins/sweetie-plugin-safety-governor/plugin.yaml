@@ -1,8 +1,8 @@
 name: sweetie-plugin-safety-governor
-version: 1.0.0
+version: 2.0.0
 api_version: 1
 display_name: Sweetie Safety Governor
-description: Safety policy, action constraint, and approval layer for CERBERUS-compatible Sweetie systems.
+description: Updated safety governor aware of autonomy modes, social tiers, and squad coordination.
 capabilities:
   - safety.evaluate_action
   - safety.set_policy
@@ -13,6 +13,5 @@ capabilities:
   - safety.status
 entrypoints:
   execute: /execute
-  docs: /docs
 healthcheck: /health
 port: 7000

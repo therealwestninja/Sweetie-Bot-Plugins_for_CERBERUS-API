@@ -1,8 +1,8 @@
 name: sweetie-plugin-tts-router
-version: 1.0.0
+version: 2.0.0
 api_version: 1
 display_name: Sweetie TTS Router
-description: Voice routing, style shaping, and speech synthesis request normalization for CERBERUS-compatible Sweetie systems.
+description: Updated TTS router with social-tier and autonomy-aware voice shaping.
 capabilities:
   - tts.speak
   - tts.preview_voice
@@ -12,6 +12,5 @@ capabilities:
   - tts.status
 entrypoints:
   execute: /execute
-  docs: /docs
 healthcheck: /health
 port: 7000

@@ -1,58 +1,33 @@
 from fastapi import APIRouter, HTTPException
-
-from app.config import settings
-from app.models import FollowRouteRequest, PlanToLocationRequest, PlanToPointRequest, SetPositionRequest
-from app.services.navigation import cancel_route, follow_route, get_route, plan_to_location, plan_to_point, set_position, status
-from sweetie_plugin_sdk.manifest import load_manifest
+from app.models import SetPositionRequest, PlanToPointRequest, PlanToLocationRequest, FollowRouteRequest
+from app.services.navigation import set_position, plan_to_point, plan_to_location, follow_route, cancel_route, get_route, status
 from sweetie_plugin_sdk.models import ExecuteRequest, PluginResponse
+from sweetie_plugin_sdk.manifest import load_manifest
 
 router = APIRouter()
-
 @router.get("/health")
-def health():
-    return {"status": "ok", "plugin": settings.plugin_name, "version": settings.plugin_version}
-
+def health(): return {"status":"ok"}
 @router.get("/manifest")
-def manifest():
-    return load_manifest()
-
-@router.get("/status")
-def status_route():
-    return status()
-
+def manifest(): return load_manifest()
 @router.post("/execute")
 def execute(req: ExecuteRequest):
-    action = req.type.strip().lower()
-
-    if action == "navigation.set_position":
-        model = SetPositionRequest(**req.payload)
-        return PluginResponse(plugin=settings.plugin_name, action=req.type, data=set_position(model.position.model_dump())).model_dump()
-
-    if action == "navigation.plan_to_point":
-        model = PlanToPointRequest(**req.payload)
-        return PluginResponse(plugin=settings.plugin_name, action=req.type, data={"route": plan_to_point(model.goal.model_dump())}).model_dump()
-
-    if action == "navigation.plan_to_location":
-        model = PlanToLocationRequest(**req.payload)
-        route = plan_to_location(model.name, model.locations)
-        if not route:
-            raise HTTPException(status_code=404, detail=f"Location not found: {model.name}")
-        return PluginResponse(plugin=settings.plugin_name, action=req.type, data={"route": route}).model_dump()
-
-    if action == "navigation.follow_route":
-        model = FollowRouteRequest(**req.payload)
-        route = follow_route(model.route_id)
-        if not route:
-            raise HTTPException(status_code=404, detail=f"Route not found: {model.route_id}")
-        return PluginResponse(plugin=settings.plugin_name, action=req.type, data={"route": route}).model_dump()
-
-    if action == "navigation.cancel_route":
-        return PluginResponse(plugin=settings.plugin_name, action=req.type, data=cancel_route()).model_dump()
-
-    if action == "navigation.get_route":
-        return PluginResponse(plugin=settings.plugin_name, action=req.type, data={"route": get_route()}).model_dump()
-
-    if action == "navigation.status":
-        return PluginResponse(plugin=settings.plugin_name, action=req.type, data=status()).model_dump()
-
+    t = req.type.strip().lower()
+    if t == "navigation.set_position":
+        m = SetPositionRequest(**req.payload); return PluginResponse(plugin="navigation", action=req.type, data=set_position(m.position.model_dump())).model_dump()
+    if t == "navigation.plan_to_point":
+        m = PlanToPointRequest(**req.payload); return PluginResponse(plugin="navigation", action=req.type, data={"route": plan_to_point(m.goal.model_dump(), m.purpose)}).model_dump()
+    if t == "navigation.plan_to_location":
+        m = PlanToLocationRequest(**req.payload); route = plan_to_location(m.name, m.locations, m.purpose)
+        if not route: raise HTTPException(status_code=404, detail="location_not_found")
+        return PluginResponse(plugin="navigation", action=req.type, data={"route": route}).model_dump()
+    if t == "navigation.follow_route":
+        m = FollowRouteRequest(**req.payload); route = follow_route(m.route_id)
+        if not route: raise HTTPException(status_code=404, detail="route_not_found")
+        return PluginResponse(plugin="navigation", action=req.type, data={"route": route}).model_dump()
+    if t == "navigation.cancel_route":
+        return PluginResponse(plugin="navigation", action=req.type, data=cancel_route()).model_dump()
+    if t == "navigation.get_route":
+        return PluginResponse(plugin="navigation", action=req.type, data={"route": get_route()}).model_dump()
+    if t == "navigation.status":
+        return PluginResponse(plugin="navigation", action=req.type, data=status()).model_dump()
     raise HTTPException(status_code=400, detail=f"Unsupported action type: {req.type}")

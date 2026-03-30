@@ -1,59 +1,30 @@
 from fastapi import APIRouter, HTTPException
-
 from app.config import settings
-from app.models import PollRequest, PublishEventRequest, SubscribeRequest, UnsubscribeRequest
-from app.services.bus import clear, poll, publish, recent, status, subscribe, unsubscribe
-from sweetie_plugin_sdk.manifest import load_manifest
+from app.models import PublishEventRequest, SubscribeRequest, PollRequest
+from app.services.bus import subscribe, unsubscribe, publish, poll, recent, clear, status
 from sweetie_plugin_sdk.models import ExecuteRequest, PluginResponse
+from sweetie_plugin_sdk.manifest import load_manifest
 
 router = APIRouter()
-
 @router.get("/health")
-def health():
-    return {"status": "ok", "plugin": settings.plugin_name, "version": settings.plugin_version}
-
+def health(): return {"status":"ok","plugin":settings.plugin_name,"version":settings.plugin_version}
 @router.get("/manifest")
-def manifest():
-    return load_manifest()
-
-@router.get("/status")
-def status_route():
-    return status()
-
+def manifest(): return load_manifest()
 @router.post("/execute")
 def execute(req: ExecuteRequest):
-    action = req.type.strip().lower()
-
-    if action == "event.publish":
-        model = PublishEventRequest(**req.payload)
-        result = publish(model.topic, model.source, model.payload, model.tags)
-        return PluginResponse(plugin=settings.plugin_name, action=req.type, data=result).model_dump()
-
-    if action == "event.subscribe":
-        model = SubscribeRequest(**req.payload)
-        result = subscribe(model.subscriber_id, model.topics)
-        return PluginResponse(plugin=settings.plugin_name, action=req.type, data=result).model_dump()
-
-    if action == "event.unsubscribe":
-        model = UnsubscribeRequest(**req.payload)
-        result = unsubscribe(model.subscriber_id)
-        return PluginResponse(plugin=settings.plugin_name, action=req.type, data=result).model_dump()
-
-    if action == "event.poll":
-        model = PollRequest(**req.payload)
-        result = poll(model.subscriber_id, model.limit)
-        return PluginResponse(plugin=settings.plugin_name, action=req.type, data=result).model_dump()
-
-    if action == "event.recent":
-        limit = int(req.payload.get("limit", 25))
-        result = {"events": recent(limit)}
-        return PluginResponse(plugin=settings.plugin_name, action=req.type, data=result).model_dump()
-
-    if action == "event.clear":
-        result = clear()
-        return PluginResponse(plugin=settings.plugin_name, action=req.type, data=result).model_dump()
-
-    if action == "event.status":
+    t = req.type.strip().lower()
+    if t == "event.publish":
+        m = PublishEventRequest(**req.payload); return PluginResponse(plugin=settings.plugin_name, action=req.type, data=publish(m.topic,m.source,m.payload,m.tags)).model_dump()
+    if t == "event.subscribe":
+        m = SubscribeRequest(**req.payload); return PluginResponse(plugin=settings.plugin_name, action=req.type, data=subscribe(m.subscriber_id,m.topics)).model_dump()
+    if t == "event.unsubscribe":
+        sid = req.payload["subscriber_id"]; return PluginResponse(plugin=settings.plugin_name, action=req.type, data=unsubscribe(sid)).model_dump()
+    if t == "event.poll":
+        m = PollRequest(**req.payload); return PluginResponse(plugin=settings.plugin_name, action=req.type, data=poll(m.subscriber_id,m.limit)).model_dump()
+    if t == "event.recent":
+        return PluginResponse(plugin=settings.plugin_name, action=req.type, data={"events": recent(int(req.payload.get("limit",25)))}).model_dump()
+    if t == "event.clear":
+        return PluginResponse(plugin=settings.plugin_name, action=req.type, data=clear()).model_dump()
+    if t == "event.status":
         return PluginResponse(plugin=settings.plugin_name, action=req.type, data=status()).model_dump()
-
     raise HTTPException(status_code=400, detail=f"Unsupported action type: {req.type}")

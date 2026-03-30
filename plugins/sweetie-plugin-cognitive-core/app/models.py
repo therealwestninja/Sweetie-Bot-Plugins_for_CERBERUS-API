@@ -1,4 +1,3 @@
-from __future__ import annotations
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 
@@ -21,5 +20,3 @@ class SetStateRequest(BaseModel):
     curiosity: Optional[float] = None
     sociability: Optional[float] = None
     caution: Optional[float] = None
-    battery_bias: Optional[float] = None
-    notes: List[str] = Field(default_factory=list)

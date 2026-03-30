@@ -1,8 +1,8 @@
 name: sweetie-plugin-gait-library
-version: 1.0.0
+version: 2.1.0
 api_version: 1
-display_name: Sweetie Gait Library Plugin
-description: Reusable gait profile and movement-style adapter for CERBERUS-compatible quadruped control.
+display_name: Sweetie Gait Library
+description: Updated gait library with persona, autonomy, and docking-aware movement styling.
 capabilities:
   - gait.list_profiles
   - gait.list_gaits
@@ -14,9 +14,5 @@ capabilities:
   - gait.status
 entrypoints:
   execute: /execute
-  docs: /docs
 healthcheck: /health
 port: 7000
-compatibility:
-  controller: CERBERUS-UnitreeGo2Companion_Web-Interface
-  backend: CERBERUS-UnitreeGo2CompanionAPI

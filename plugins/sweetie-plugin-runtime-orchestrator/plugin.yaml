@@ -1,20 +1,17 @@
 name: sweetie-plugin-runtime-orchestrator
-version: 1.0.0
+version: 2.0.0
 api_version: 1
-display_name: Sweetie Runtime Orchestrator Plugin
-description: Cross-plugin chaining and orchestration layer for CERBERUS-compatible Sweetie plugins.
+display_name: Sweetie Runtime Orchestrator
+description: Updated runtime orchestrator with newer Sweetie plugin integrations.
 capabilities:
   - runtime.register_routes
   - runtime.chain_execute
-  - runtime.follow_object
+  - runtime.follow_best_friend
+  - runtime.dock_cycle
   - runtime.patrol_mission
-  - runtime.simulate_chain
+  - runtime.peer_status_ping
   - runtime.status
 entrypoints:
   execute: /execute
-  docs: /docs
 healthcheck: /health
 port: 7000
-compatibility:
-  controller: CERBERUS-UnitreeGo2Companion_Web-Interface
-  backend: CERBERUS-UnitreeGo2CompanionAPI

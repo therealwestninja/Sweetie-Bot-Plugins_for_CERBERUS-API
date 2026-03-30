@@ -1,8 +1,8 @@
 name: sweetie-plugin-routine-scheduler
-version: 1.0.0
+version: 2.0.0
 api_version: 1
 display_name: Sweetie Routine Scheduler
-description: Task scheduling and routine management layer.
+description: Updated routine scheduler with autonomy-friendly routine metadata and suggested action templates.
 capabilities:
   - routine.add
   - routine.remove

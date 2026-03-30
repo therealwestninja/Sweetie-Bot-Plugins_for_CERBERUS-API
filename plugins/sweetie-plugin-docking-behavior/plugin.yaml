@@ -1,8 +1,8 @@
 name: sweetie-plugin-docking-behavior
-version: 1.0.0
+version: 2.0.0
 api_version: 1
 display_name: Sweetie Docking Behavior
-description: Dock-seeking, approach, alignment, and charging behavior layer for CERBERUS-compatible Sweetie systems.
+description: Updated docking behavior with autonomy-friendly state and route hints.
 capabilities:
   - docking.set_dock
   - docking.seek_dock
@@ -14,6 +14,5 @@ capabilities:
   - docking.status
 entrypoints:
   execute: /execute
-  docs: /docs
 healthcheck: /health
 port: 7000

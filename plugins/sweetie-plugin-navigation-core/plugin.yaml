@@ -1,8 +1,8 @@
 name: sweetie-plugin-navigation-core
-version: 1.0.0
+version: 2.0.0
 api_version: 1
 display_name: Sweetie Navigation Core
-description: Goal-directed navigation planning and route generation for CERBERUS-compatible Sweetie systems.
+description: Updated navigation core with patrol/docking/autonomy-friendly route metadata.
 capabilities:
   - navigation.set_position
   - navigation.plan_to_point
@@ -13,6 +13,5 @@ capabilities:
   - navigation.status
 entrypoints:
   execute: /execute
-  docs: /docs
 healthcheck: /health
 port: 7000

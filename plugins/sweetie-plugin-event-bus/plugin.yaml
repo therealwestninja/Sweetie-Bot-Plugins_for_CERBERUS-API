@@ -1,8 +1,8 @@
 name: sweetie-plugin-event-bus
-version: 1.0.0
+version: 2.1.0
 api_version: 1
-display_name: Sweetie Event Bus Plugin
-description: Typed event publish/subscribe spine for CERBERUS-compatible Sweetie plugins.
+display_name: Sweetie Event Bus
+description: Updated event bus with event categories and ecosystem-friendly topic routing.
 capabilities:
   - event.publish
   - event.subscribe
@@ -13,6 +13,5 @@ capabilities:
   - event.status
 entrypoints:
   execute: /execute
-  docs: /docs
 healthcheck: /health
 port: 7000

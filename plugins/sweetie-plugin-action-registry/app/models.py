@@ -1,6 +1,5 @@
-from __future__ import annotations
-from typing import Any, Dict, List
 from pydantic import BaseModel, Field
+from typing import Any, Dict, List
 
 class ActionRegistration(BaseModel):
     action_name: str

@@ -1,12 +1,8 @@
-# sweetie-plugin-interaction-core
+# sweetie-plugin-interaction-core v2
 
-Handles social interaction decisions for Sweetie.
+Updated to leverage:
+- social-bonding
+- behavior-engine
+- tts-router
 
-## What it does
-- decides whether to engage with a person
-- determines behavior: greet, follow, observe, ignore
-- suggests speech + action
-- manages social distance and attention
-
-## Example
-vision.person_detected → greet / follow / observe / ignore
+It now produces relationship-aware social behavior and voice-ready speech envelopes.

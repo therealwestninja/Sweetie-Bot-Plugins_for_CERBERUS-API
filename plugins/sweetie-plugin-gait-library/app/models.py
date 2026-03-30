@@ -1,6 +1,5 @@
-from __future__ import annotations
-from typing import Any, Dict, Optional
 from pydantic import BaseModel, Field
+from typing import Any, Dict, Optional
 
 class ProfileRequest(BaseModel):
     profile: str
@@ -17,6 +16,8 @@ class AdaptCommandRequest(BaseModel):
     profile: Optional[str] = None
     gait: Optional[str] = None
     command: Dict[str, Any] = Field(default_factory=dict)
+    autonomy_mode: Optional[str] = None
+    movement_style: Optional[str] = None
 
 class PreviewSequenceRequest(BaseModel):
     profile: Optional[str] = None

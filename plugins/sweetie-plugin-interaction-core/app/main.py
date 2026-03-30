@@ -1,5 +1,5 @@
 from fastapi import FastAPI
 from app.routes import router
-
-app = FastAPI(title="Sweetie Interaction Core")
+from app.config import settings
+app = FastAPI(title="Sweetie Interaction Core", version=settings.plugin_version)
 app.include_router(router)

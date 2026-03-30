@@ -1,12 +1,12 @@
-# sweetie-plugin-spatial-memory
+# sweetie-plugin-spatial-memory v2
 
-Gives Sweetie memory of places, objects, and positions.
+Updated to better support:
+- memory-consolidator
+- docking-behavior
+- autonomy-supervisor
+- navigation-core
 
-## What it does
-- stores named locations (dock, food, operator last seen, etc)
-- tracks current position
-- returns nearby known objects
-- enables spatial awareness for behavior + navigation
-
-## Why it matters
-Sweetie stops being reactive and starts remembering her world.
+New improvements:
+- confidence-scored remembered locations
+- stable location metadata
+- export for knowledge consolidation

@@ -1,129 +1,93 @@
 from fastapi import APIRouter, HTTPException
-
+from app.models import RegisterRoutesRequest, PatrolMissionRequest, ChainExecuteRequest
+from app.services.state import state
+from app.services.http_clients import call_execute
 from app.config import settings
-from app.models import ChainExecuteRequest, FollowObjectRequest, PatrolMissionRequest, RegisterRoutesRequest, SimulateChainRequest
-from app.services.orchestrator import build_follow_object_goal, build_patrol_mission, call_execute, register_routes, remember, state
-from sweetie_plugin_sdk.manifest import load_manifest
 from sweetie_plugin_sdk.models import ExecuteRequest, PluginResponse
+from sweetie_plugin_sdk.manifest import load_manifest
 
 router = APIRouter()
 
+def remember(entry: dict):
+    state.history.append(entry)
+    state.history = state.history[-30:]
+
 @router.get("/health")
 def health():
-    return {
-        "status": "ok",
-        "plugin": settings.plugin_name,
-        "version": settings.plugin_version,
-    }
+    return {"status":"ok","plugin":settings.plugin_name,"version":settings.plugin_version}
 
 @router.get("/manifest")
 def manifest():
     return load_manifest()
 
-@router.get("/status")
-def status():
-    return {
-        "routes": state.routes,
-        "last_results": state.last_results,
-    }
-
 @router.post("/execute")
 async def execute(req: ExecuteRequest):
-    action = req.type.strip().lower()
+    t = req.type.strip().lower()
 
-    if action == "runtime.register_routes":
-        model = RegisterRoutesRequest(**req.payload)
-        result = register_routes(model)
-        remember({"action": req.type, "result": result})
+    if t == "runtime.register_routes":
+        m = RegisterRoutesRequest(**req.payload)
+        for k, v in m.model_dump().items():
+            if v:
+                state.routes[k.replace("_url","")] = v
+        return PluginResponse(plugin=settings.plugin_name, action=req.type, data={"routes": state.routes}).model_dump()
+
+    if t == "runtime.follow_best_friend":
+        bf = await call_execute(state.routes["bonding"], {"type":"bonding.get_best_friend","payload":{}})
+        best = ((bf or {}).get("data") or {}).get("best_friend")
+        if not best:
+            raise HTTPException(status_code=404, detail="best_friend_not_found")
+        action = {"type":"action.dispatch","payload":{"action_name":"follow_operator","payload_override":{"target_id": best["human_id"]}}}
+        safety = await call_execute(state.routes["safety"], {"type":"safety.evaluate_action","payload":{"action": action, "context": {}}})
+        result = {"best_friend": best, "action": action, "safety": safety}
+        remember(result)
         return PluginResponse(plugin=settings.plugin_name, action=req.type, data=result).model_dump()
 
-    if action == "runtime.follow_object":
-        model = FollowObjectRequest(**req.payload)
-        world_resp = await call_execute(state.routes["world_model"], {
-            "type": "world.get_object",
-            "payload": {"id": model.object_id},
+    if t == "runtime.dock_cycle":
+        payload = req.payload or {}
+        seek = await call_execute(state.routes["docking"], {"type":"docking.seek_dock","payload": payload})
+        result = {"seek": seek}
+        if ((seek or {}).get("data") or {}).get("should_dock"):
+            suggested = (((seek or {}).get("data") or {}).get("suggested_action"))
+            if suggested and suggested.get("type") == "navigation.plan_to_point":
+                nav = await call_execute(state.routes["navigation"], suggested)
+                result["navigation"] = nav
+        remember(result)
+        return PluginResponse(plugin=settings.plugin_name, action=req.type, data=result).model_dump()
+
+    if t == "runtime.patrol_mission":
+        m = PatrolMissionRequest(**req.payload)
+        waypoints = m.waypoints[:]
+        if m.loop and waypoints:
+            waypoints.append(waypoints[0])
+        result = {"mission_payload":{"type":"nav.follow_waypoints","payload":{"waypoints": waypoints}}}
+        remember(result)
+        return PluginResponse(plugin=settings.plugin_name, action=req.type, data=result).model_dump()
+
+    if t == "runtime.peer_status_ping":
+        peer_id = req.payload.get("peer_id")
+        if not peer_id:
+            raise HTTPException(status_code=400, detail="peer_id_required")
+        message = await call_execute(state.routes["crusader"], {
+            "type":"crusader.send_message",
+            "payload":{"peer_id": peer_id, "message_type":"status_ping", "payload": req.payload.get("payload", {})}
         })
-        obj = world_resp["data"]["result"]
-        nav_request = build_follow_object_goal(obj, model.standoff_m)
-        result = {
-            "world_object": obj,
-            "nav_request": nav_request,
-        }
-        remember({"action": req.type, "result": result})
-        return PluginResponse(plugin=settings.plugin_name, action=req.type, data=result).model_dump()
+        remember({"peer_ping": message})
+        return PluginResponse(plugin=settings.plugin_name, action=req.type, data={"message": message}).model_dump()
 
-    if action == "runtime.patrol_mission":
-        model = PatrolMissionRequest(**req.payload)
-        if not model.waypoints:
-            raise HTTPException(status_code=400, detail="waypoints cannot be empty")
-        mission = build_patrol_mission(model)
-        result = {"mission_payload": mission}
-        remember({"action": req.type, "result": result})
-        return PluginResponse(plugin=settings.plugin_name, action=req.type, data=result).model_dump()
-
-    if action == "runtime.chain_execute":
-        model = ChainExecuteRequest(**req.payload)
-        if model.chain_name == "follow_operator":
-            nested = await execute(ExecuteRequest(type="runtime.follow_object", payload=model.payload))
+    if t == "runtime.chain_execute":
+        m = ChainExecuteRequest(**req.payload)
+        if m.chain_name == "follow_best_friend":
+            nested = await execute(ExecuteRequest(type="runtime.follow_best_friend", payload=m.payload))
             return nested
-        if model.chain_name == "patrol_basic":
-            nested = await execute(ExecuteRequest(type="runtime.patrol_mission", payload=model.payload))
+        if m.chain_name == "dock_cycle":
+            nested = await execute(ExecuteRequest(type="runtime.dock_cycle", payload=m.payload))
             return nested
-        raise HTTPException(status_code=400, detail=f"Unknown chain_name: {model.chain_name}")
+        if m.chain_name == "peer_status_ping":
+            nested = await execute(ExecuteRequest(type="runtime.peer_status_ping", payload=m.payload))
+            return nested
+        raise HTTPException(status_code=400, detail=f"unknown_chain_name:{m.chain_name}")
 
-    if action == "runtime.simulate_chain":
-        model = SimulateChainRequest(**req.payload)
-        start = await call_execute(state.routes["sim"], {
-            "type": "sim.episode_start",
-            "payload": {
-                "episode_name": model.episode_name,
-                "scenario": model.scenario,
-                "metadata": {"source": "runtime-orchestrator"},
-            },
-        })
-        episode_id = start["data"]["episode"]["episode_id"]
-
-        recorded_steps = []
-        for step in model.steps:
-            result = await call_execute(state.routes["sim"], {
-                "type": "sim.step",
-                "payload": {
-                    "episode_id": episode_id,
-                    "observation": step.observation,
-                    "action": step.action,
-                    "reward": step.reward,
-                    "done": step.done,
-                    "notes": step.notes,
-                },
-            })
-            recorded_steps.append(result["data"]["step"])
-
-        end = await call_execute(state.routes["sim"], {
-            "type": "sim.episode_end",
-            "payload": {
-                "episode_id": episode_id,
-                "outcome": "completed",
-                "summary": {"step_count": len(recorded_steps)},
-            },
-        })
-
-        replay = await call_execute(state.routes["sim"], {
-            "type": "sim.replay_create",
-            "payload": {"episode_id": episode_id},
-        })
-
-        result = {
-            "episode": end["data"]["episode"],
-            "replay": replay["data"]["replay"],
-        }
-        remember({"action": req.type, "result": {"episode_id": episode_id, "step_count": len(recorded_steps)}})
-        return PluginResponse(plugin=settings.plugin_name, action=req.type, data=result).model_dump()
-
-    if action == "runtime.status":
-        result = {
-            "routes": state.routes,
-            "last_results": state.last_results,
-        }
-        return PluginResponse(plugin=settings.plugin_name, action=req.type, data=result).model_dump()
+    if t == "runtime.status":
+        return PluginResponse(plugin=settings.plugin_name, action=req.type, data={"routes": state.routes, "history": state.history[-10:]}).model_dump()
 
     raise HTTPException(status_code=400, detail=f"Unsupported action type: {req.type}")
