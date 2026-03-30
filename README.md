@@ -2,10 +2,6 @@
 
 Sweetie-Bot is a modular plugin ecosystem built to extend and enhance the CERBERUS robotics platform.
 
-**Backend:** https://github.com/therealwestninja/CERBERUS-UnitreeGo2CompanionAPI  
-**Interface:** https://github.com/therealwestninja/CERBERUS-UnitreeGo2Companion_Web-Interface  
-**Plugins (You are here →):** https://github.com/therealwestninja/Sweetie-Bot-Plugins_for_CERBERUS-API
-
 ## What is this?
 A drop-in system of containerized plugins that:
 - Extend CERBERUS API functionality
