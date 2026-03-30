@@ -1,0 +1,17 @@
+name: sweetie-plugin-interaction-core
+version: 1.0.0
+api_version: 1
+display_name: Sweetie Interaction Core
+description: Human interaction behavior layer (engage, greet, follow, observe, disengage)
+capabilities:
+  - interaction.process_event
+  - interaction.decide_engagement
+  - interaction.suggest_response
+  - interaction.set_preferences
+  - interaction.get_state
+  - interaction.reset
+entrypoints:
+  execute: /execute
+  docs: /docs
+healthcheck: /health
+port: 7000
